@@ -50,6 +50,8 @@ export interface Stats {
   bleedDps: number;
   lowHpMult: number;
   moveSpd: number;
+  sentinel: number;
+  sentinelDmg: number;
 }
 
 export function baseStats(m: MetaInput): Stats {
@@ -73,6 +75,8 @@ export function baseStats(m: MetaInput): Stats {
     bleedDps: 0,
     lowHpMult: 1,
     moveSpd: 272,
+    sentinel: 0,
+    sentinelDmg: 10,
   };
 }
 
@@ -203,8 +207,15 @@ export const BOONS: BoonDef[] = [
   },
   {
     id: "nu_dash", god: "nuwa", name: "Clay Guardians",
-    desc: (t) => (t === 2 ? "Clay soldiers fight beside you — dash returns 30% sooner, +1 dash charge." : `Clay soldiers fight beside you — dash returns ${["18%", "26%"][t]} sooner.`),
-    apply: (s, t) => { s.dashCd *= [0.82, 0.74, 0.7][t]; if (t === 2) s.dashMax += 1; },
+    desc: (t) =>
+      `${["One clay soldier rises", "Two clay soldiers rise", "Three clay soldiers rise"][t]} to fight beside you, striking nearby foes. ` +
+      `Dash returns ${["18%", "26%", "30%"][t]} sooner${t === 2 ? " and grants +1 dash charge" : ""}.`,
+    apply: (s, t) => {
+      s.sentinel += [1, 2, 3][t];
+      s.sentinelDmg = 10 + s.dmg * 0.12;
+      s.dashCd *= [0.82, 0.74, 0.7][t];
+      if (t === 2) s.dashMax += 1;
+    },
   },
   {
     id: "nu_dmg", god: "nuwa", name: "Sky-Mending Might",
@@ -236,6 +247,8 @@ export interface BoonChoice {
   tier: number;
   tierName: string;
   tierColor: string;
+  isStack: boolean;
+  fromTierName: string;
 }
 
 function rollTier(): number {
@@ -243,38 +256,53 @@ function rollTier(): number {
   return r < 0.12 ? 2 : r < 0.42 ? 1 : 0;
 }
 
-export function rollChoices(ownedIds: string[]): BoonChoice[] {
-  const pool = BOONS.filter((b) => !ownedIds.includes(b.id));
+interface Candidate {
+  def: BoonDef;
+  isStack: boolean;
+  tier: number;
+}
+
+export function rollChoices(owned: OwnedBoon[], allowStacks: boolean): BoonChoice[] {
+  const ownedIds = owned.map((o) => o.id);
+  const pool: Candidate[] = BOONS.filter((b) => !ownedIds.includes(b.id)).map((def) => ({ def, isStack: false, tier: rollTier() }));
+  if (allowStacks) {
+    for (const o of owned) {
+      if (o.tier >= 2) continue; // already Legendary — nothing left to stack
+      const def = BOONS.find((b) => b.id === o.id);
+      if (def) pool.push({ def, isStack: true, tier: o.tier + 1 });
+    }
+  }
   if (pool.length === 0) return [];
-  const picked: BoonDef[] = [];
+  const picked: Candidate[] = [];
   const gods: GodId[] = (["nezha", "leigong", "mazu", "houyi", "yanluo", "nuwa"] as GodId[]).sort(() => Math.random() - 0.5);
   let gi = 0;
   let guard = 0;
   while (picked.length < 3 && pool.length > 0 && guard++ < 60) {
     const god = gods[gi % gods.length];
     gi++;
-    const candidates = pool.filter((b) => b.god === god && !picked.includes(b));
-    const from = candidates.length > 0 ? candidates : pool.filter((b) => !picked.includes(b));
+    const candidates = pool.filter((c) => c.def.god === god && !picked.some((p) => p.def.id === c.def.id));
+    const from = candidates.length > 0 ? candidates : pool.filter((c) => !picked.some((p) => p.def.id === c.def.id));
     if (from.length === 0) break;
-    const def = from[Math.floor(Math.random() * from.length)];
-    picked.push(def);
-    const idx = pool.indexOf(def);
+    const cand = from[Math.floor(Math.random() * from.length)];
+    picked.push(cand);
+    const idx = pool.indexOf(cand);
     if (idx >= 0) pool.splice(idx, 1);
   }
-  return picked.map((def) => {
-    const tier = rollTier();
-    const g = GODS[def.god];
+  return picked.map((c) => {
+    const g = GODS[c.def.god];
     return {
-      id: def.id,
-      god: def.god,
+      id: c.def.id,
+      god: c.def.god,
       godName: g.name,
       godTitle: g.title,
       color: g.color,
-      name: def.name,
-      desc: def.desc(tier),
-      tier,
-      tierName: TIER_NAMES[tier],
-      tierColor: TIER_COLORS[tier],
+      name: c.def.name,
+      desc: c.def.desc(c.tier),
+      tier: c.tier,
+      tierName: TIER_NAMES[c.tier],
+      tierColor: TIER_COLORS[c.tier],
+      isStack: c.isStack,
+      fromTierName: c.isStack ? TIER_NAMES[c.tier - 1] : "",
     };
   });
 }

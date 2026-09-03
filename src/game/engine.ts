@@ -60,7 +60,9 @@ interface Callbacks {
   pause: (paused: boolean) => void;
 }
 
-type EnemyKind = "wisp" | "spitter" | "brute" | "generator" | "boss";
+type EnemyKind = "wisp" | "spitter" | "brute" | "generator" | "boss" | "bossOx" | "bossHorse" | "bossBone";
+
+const isBossKind = (k: EnemyKind) => k === "boss" || k === "bossOx" || k === "bossHorse" || k === "bossBone";
 
 interface Enemy {
   id: number;
@@ -117,7 +119,7 @@ export class Engine {
   private cb: Callbacks;
   private raf = 0;
   private lastT = 0;
-  private view = { scale: 1, ox: 0, oy: 0, dpr: 1 };
+  private view = { scale: 1, ox: 0, oy: 0, dpr: 1, vw: W, vh: H };
 
   mode: "menu" | "run" = "menu";
   state: "playing" | "cleared" | "boonwait" | "dying" | "victory" | "over" = "over";
@@ -135,6 +137,17 @@ export class Engine {
   private runTime = 0;
   private bossRoom = false;
   private bossSpawned = false;
+  private bossTier = 0; // 0 none · 1 Ox-Head & Horse-Face · 2 Taotie · 3 Lady White Bone
+  private worldW = W;
+  private worldH = H;
+  private worldScale = 1;
+  private pendingGrowth = false;
+  private grewThisChamber = false;
+  private bossesSlain = 0;
+  private canStack = false;
+  private cam = { x: 0, y: 0 };
+  private sentinels: { x: number; y: number; seed: number; atk: number; swing: number; face: number }[] = [];
+  private decals: { x: number; y: number; r: number; seed: number }[] = [];
 
   // player
   private px = W / 2; private py = H / 2; private pr = 13;
@@ -189,7 +202,7 @@ export class Engine {
     this.ctx = canvas.getContext("2d")!;
     this.bindInput();
     this.resize();
-    this.makeFloor(true);
+    this.centerCamera();
     try { document.fonts.load("800 64px Cinzel").catch(() => {}); } catch { /* ok */ }
     this.lastT = performance.now();
     const loop = (t: number) => {
@@ -251,7 +264,23 @@ export class Engine {
     this.cv.style.width = cw + "px";
     this.cv.style.height = ch + "px";
     const scale = Math.min(cw / W, ch / H);
-    this.view = { scale, ox: (cw - W * scale) / 2, oy: (ch - H * scale) / 2, dpr };
+    this.view = { scale, ox: 0, oy: 0, dpr, vw: cw / scale, vh: ch / scale };
+    if (this.mode === "menu") this.centerCamera();
+  }
+
+  private centerCamera() {
+    this.cam.x = this.worldW <= this.view.vw ? (this.worldW - this.view.vw) / 2 : clamp(this.px - this.view.vw / 2, 0, this.worldW - this.view.vw);
+    this.cam.y = this.worldH <= this.view.vh ? (this.worldH - this.view.vh) / 2 : clamp(this.py - this.view.vh / 2, 0, this.worldH - this.view.vh);
+  }
+
+  private updateCamera(dt: number) {
+    const lookX = clamp((this.aimX - this.px) * 0.12, -90, 90);
+    const lookY = clamp((this.aimY - this.py) * 0.12, -70, 70);
+    const tx = this.worldW <= this.view.vw ? (this.worldW - this.view.vw) / 2 : clamp(this.px + lookX - this.view.vw / 2, 0, this.worldW - this.view.vw);
+    const ty = this.worldH <= this.view.vh ? (this.worldH - this.view.vh) / 2 : clamp(this.py + lookY - this.view.vh / 2, 0, this.worldH - this.view.vh);
+    const k = Math.min(1, dt * 7);
+    this.cam.x += (tx - this.cam.x) * k;
+    this.cam.y += (ty - this.cam.y) * k;
   }
 
   setPaused(p: boolean) {
@@ -271,7 +300,11 @@ export class Engine {
     this.state = "over";
     this.paused = false;
     this.menuParts = [];
-    this.makeFloor(true);
+    this.worldW = W;
+    this.worldH = H;
+    this.px = W / 2;
+    this.py = H / 2;
+    this.centerCamera();
   }
 
   startRun(meta: MetaInput, weapon: WeaponId) {
@@ -357,9 +390,33 @@ export class Engine {
   }
 
   // ---------------- chambers ----------------
+  private bossName(tier: number) {
+    return ["", "OX-HEAD & HORSE-FACE", "TAOTIE", "LADY WHITE BONE"][tier] ?? "TAOTIE";
+  }
+  private bossTitle(tier: number) {
+    return ["", "THE WARDENS' GATE", "THE THRONE OF HUNGER", "THE BONE EMPRESS"][tier] ?? "THE THRONE OF HUNGER";
+  }
+
   private nextChamber() {
     this.depth++;
-    this.bossRoom = this.depth % 10 === 0;
+    // the crypt doubles after every boss fight — cap at 8× a side
+    this.grewThisChamber = false;
+    if (this.pendingGrowth) {
+      this.pendingGrowth = false;
+      if (this.worldScale < 8) {
+        this.worldScale *= 2;
+        this.grewThisChamber = true;
+      }
+    }
+    this.worldW = W * this.worldScale;
+    this.worldH = H * this.worldScale;
+    // boss schedule — wardens at 5, the Taotie at 10, the Bone Empress at 15, then the trio cycles forever
+    this.bossTier =
+      this.depth === 5 ? 1 :
+      this.depth === 10 ? 2 :
+      this.depth === 15 ? 3 :
+      this.depth > 15 && this.depth % 5 === 0 ? 1 + ((this.depth / 5 - 1) % 3) : 0;
+    this.bossRoom = this.bossTier > 0;
     this.bossSpawned = false;
     this.state = "playing";
     this.paused = false;
@@ -369,106 +426,141 @@ export class Engine {
     this.pickups = [];
     this.chests = [];
     this.floaters = [];
-    this.px = W / 2; this.py = H / 2;
+    this.decals = [];
+    this.px = this.worldW / 2; this.py = this.worldH / 2;
     this.iframe = 1.0;
     this.dashT = 0;
     this.dashCharges = Math.min(this.stats.dashMax, this.dashCharges + 1);
-    this.makeFloor(false);
-    this.decalCv = document.createElement("canvas");
-    this.decalCv.width = W; this.decalCv.height = H;
     this.buildObstacles();
     this.populateChamber();
-    const sub = this.bossRoom ? "THE TAOTIE AWAITS · SLAY IT" : `SPAWNFONTS ×${this.enemies.filter((e) => e.kind === "generator").length} — DESTROY THEM ALL`;
-    this.setBanner(this.bossRoom ? "THE THRONE OF HUNGER" : `CHAMBER ${this.depth}`, sub, this.bossRoom ? "#ff3b57" : "#ffc23d");
+    this.centerCamera();
+    let sub: string;
+    if (this.bossRoom) {
+      const solo = this.bossTier === 2;
+      sub = `${this.bossName(this.bossTier)} ${solo ? "AWAITS" : "BAR THE WAY"} · SLAY ${solo ? "IT" : "THEM"}`;
+    } else {
+      sub = `SPAWNFONTS ×${this.enemies.filter((e) => e.kind === "generator").length} — DESTROY THEM ALL`;
+    }
+    if (this.grewThisChamber) sub += " · THE CRYPT HAS DOUBLED";
+    this.setBanner(this.bossRoom ? this.bossTitle(this.bossTier) : `CHAMBER ${this.depth}`, sub, this.bossRoom ? "#ff3b57" : "#ffc23d");
     if (this.bossRoom) sfx.bossRoar();
+    if (this.grewThisChamber) sfx.genDie();
     this.emitHud();
   }
 
   private buildObstacles() {
     this.obstacles = [];
-    const count = 2 + (this.depth % 3);
+    const ww = this.worldW, wh = this.worldH;
+    const count = Math.round((2 + (this.depth % 3)) * clamp(this.worldScale * 0.8, 1, 4));
     let guard = 0;
-    while (this.obstacles.length < count && guard++ < 80) {
-      const w = rand(70, 140), h = rand(70, 140);
-      const x = rand(WALL + 60, W - WALL - 60 - w);
-      const y = rand(WALL + 60, H - WALL - 60 - h);
+    while (this.obstacles.length < count && guard++ < 260) {
+      const w = rand(70, 150), h = rand(70, 150);
+      const x = rand(WALL + 60, ww - WALL - 60 - w);
+      const y = rand(WALL + 60, wh - WALL - 60 - h);
       const cx = x + w / 2, cy = y + h / 2;
-      if (dist2(cx, cy, W / 2, H / 2) < 200 * 200) continue;
-      if (this.obstacles.some((o) => dist2(cx, cy, o.x + o.w / 2, o.y + o.h / 2) < 190 * 190)) continue;
+      if (dist2(cx, cy, ww / 2, wh / 2) < 240 * 240) continue;
+      if (this.obstacles.some((o) => dist2(cx, cy, o.x + o.w / 2, o.y + o.h / 2) < 200 * 200)) continue;
       this.obstacles.push({ x, y, w, h });
     }
   }
 
   private freeSpot(minR: number, avoidPlayer = 220): { x: number; y: number } {
+    const ww = this.worldW, wh = this.worldH;
     for (let i = 0; i < 40; i++) {
-      const x = rand(WALL + 70, W - WALL - 70);
-      const y = rand(WALL + 70, H - WALL - 70);
+      const x = rand(WALL + 70, ww - WALL - 70);
+      const y = rand(WALL + 70, wh - WALL - 70);
       if (dist2(x, y, this.px, this.py) < avoidPlayer * avoidPlayer) continue;
       if (this.obstacles.some((o) => x > o.x - minR && x < o.x + o.w + minR && y > o.y - minR && y < o.y + o.h + minR)) continue;
       return { x, y };
     }
-    return { x: clamp(rand(100, W - 100), WALL + 40, W - WALL - 40), y: clamp(rand(100, H - 100), WALL + 40, H - WALL - 40) };
+    return { x: clamp(rand(100, ww - 100), WALL + 40, ww - WALL - 40), y: clamp(rand(100, wh - 100), WALL + 40, wh - WALL - 40) };
   }
 
   private populateChamber() {
     const d = this.depth;
     const sc = 1 + (d - 1) * 0.16;
     const scD = 1 + (d - 1) * 0.08;
+    const cs = clamp(this.worldScale, 1, 3); // a wider crypt holds more horrors
     if (this.bossRoom) {
-      this.spawnEnemy("boss", W / 2, 190, sc, scD);
-      this.bossSpawned = true;
-      for (let i = 0; i < 2; i++) {
-        const p = this.freeSpot(30);
-        this.spawnEnemy("wisp", p.x, p.y, sc, scD);
+      const cx = this.worldW / 2;
+      const top = clamp(this.py - Math.min(340, this.worldH * 0.3), WALL + 90, this.worldH - WALL - 90);
+      if (this.bossTier === 1) {
+        this.spawnEnemy("bossOx", cx - 160, top, sc, scD);
+        this.spawnEnemy("bossHorse", cx + 160, top, sc, scD);
+        for (let i = 0; i < 2; i++) {
+          const p = this.freeSpot(30);
+          this.spawnEnemy("wisp", p.x, p.y, sc, scD);
+        }
+      } else if (this.bossTier === 2) {
+        this.spawnEnemy("boss", cx, top, sc, scD);
+        for (let i = 0; i < 2; i++) {
+          const p = this.freeSpot(30);
+          this.spawnEnemy("wisp", p.x, p.y, sc, scD);
+        }
+      } else {
+        this.spawnEnemy("bossBone", cx, top, sc, scD);
+        for (let i = 0; i < 3; i++) {
+          const p = this.freeSpot(26);
+          this.spawnEnemy("wisp", p.x, p.y, sc, scD);
+        }
       }
+      this.bossSpawned = true;
       return;
     }
-    const gens = clamp(1 + ((d - 1) >> 1), 1, 4);
+    const gens = clamp(Math.round((1 + ((d - 1) >> 1)) * cs), 1, 4 * cs);
     for (let i = 0; i < gens; i++) {
       const p = this.freeSpot(46, 260);
       this.spawnEnemy("generator", p.x, p.y, sc, scD);
     }
-    const wisps = clamp(2 + Math.floor(d * 0.8), 2, 8);
+    const wisps = clamp(Math.round((2 + Math.floor(d * 0.8)) * cs), 2, Math.round(8 * cs));
     for (let i = 0; i < wisps; i++) {
       const p = this.freeSpot(20);
       this.spawnEnemy("wisp", p.x, p.y, sc, scD);
     }
     if (d >= 2) {
-      const n = clamp(1 + Math.floor((d - 2) / 2), 1, 3);
+      const n = clamp(Math.round((1 + Math.floor((d - 2) / 2)) * cs), 1, Math.round(3 * cs));
       for (let i = 0; i < n; i++) {
         const p = this.freeSpot(24);
         this.spawnEnemy("spitter", p.x, p.y, sc, scD);
       }
     }
     if (d >= 4) {
-      const n = clamp(Math.floor((d - 2) / 2), 1, 2);
+      const n = clamp(Math.round(Math.floor((d - 2) / 2) * cs), 1, Math.round(2 * cs));
       for (let i = 0; i < n; i++) {
         const p = this.freeSpot(30);
         this.spawnEnemy("brute", p.x, p.y, sc, scD);
       }
     }
-    if (Math.random() < 0.42) {
-      const p = this.freeSpot(26, 180);
-      this.chests.push({ x: p.x, y: p.y, locked: Math.random() < 0.6, opened: false, hintCd: 0 });
+    const chestN = this.worldScale > 1 ? 2 : 1;
+    for (let i = 0; i < chestN; i++) {
+      if (Math.random() < 0.42 || i > 0) {
+        const p = this.freeSpot(26, 180);
+        this.chests.push({ x: p.x, y: p.y, locked: Math.random() < 0.6, opened: false, hintCd: 0 });
+      }
     }
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, sc: number, scD: number) {
+    const d = this.depth;
     const base: Record<EnemyKind, { r: number; hp: number; spd: number; dmg: number }> = {
       wisp: { r: 13, hp: 16, spd: rand(118, 152), dmg: 8 },
       spitter: { r: 15, hp: 28, spd: 96, dmg: 9 },
       brute: { r: 26, hp: 95, spd: 66, dmg: 18 },
       generator: { r: 24, hp: 55, spd: 0, dmg: 0 },
-      boss: { r: 46, hp: 1300 + (this.depth - 10) * 90, spd: 82, dmg: 26 },
+      boss: { r: 46, hp: 1300 + Math.max(0, d - 10) * 90, spd: 82, dmg: 26 },
+      bossOx: { r: 44, hp: 1150 + Math.max(0, d - 5) * 55, spd: 76, dmg: 24 },
+      bossHorse: { r: 38, hp: 900 + Math.max(0, d - 5) * 45, spd: 102, dmg: 18 },
+      bossBone: { r: 40, hp: 1650 + Math.max(0, d - 15) * 85, spd: 88, dmg: 22 },
     };
     const b = base[kind];
+    const isB = isBossKind(kind);
     this.enemies.push({
       id: eid++, kind,
-      x: clamp(x, WALL + b.r + 4, W - WALL - b.r - 4),
-      y: clamp(y, WALL + b.r + 4, H - WALL - b.r - 4),
+      x: clamp(x, WALL + b.r + 4, this.worldW - WALL - b.r - 4),
+      y: clamp(y, WALL + b.r + 4, this.worldH - WALL - b.r - 4),
       r: b.r,
-      hp: b.hp * (kind === "boss" ? 1 : sc),
-      maxHp: b.hp * (kind === "boss" ? 1 : sc),
+      hp: b.hp * (isB ? 1 : sc),
+      maxHp: b.hp * (isB ? 1 : sc),
       spd: b.spd * clamp(1 + (this.depth - 1) * 0.02, 1, 1.35),
       dmg: b.dmg * scD,
       flash: 0, slowT: 0, slowAmt: 0, bleedT: 0, bleedDps: 0, bleedAcc: 0,
@@ -507,7 +599,7 @@ export class Engine {
       this.clearT -= dt;
       if (this.clearT <= 0) {
         this.state = "boonwait";
-        const choices = rollChoices(this.owned.map((o) => o.id));
+        const choices = rollChoices(this.owned, this.canStack);
         this.cb.roomClear(choices);
       }
       return;
@@ -539,6 +631,8 @@ export class Engine {
     if (this.hp <= 0) { this.hp = 0; this.playerDie(); return; }
 
     this.updatePlayer(dt);
+    this.updateCamera(dt);
+    this.updateSentinels(dt);
     this.updateBullets(dt);
     this.updateEnemies(dt);
     this.updateEBullets(dt);
@@ -556,11 +650,11 @@ export class Engine {
 
   private updatePlayer(dt: number) {
     const s = this.stats;
-    // aim from mouse
-    const wx = (this.mouseSX - this.view.ox) / this.view.scale;
-    const wy = (this.mouseSY - this.view.oy) / this.view.scale;
-    this.aimX = clamp(wx, 0, W);
-    this.aimY = clamp(wy, 0, H);
+    // aim from mouse (screen → world through the camera)
+    const wx = this.mouseSX / this.view.scale + this.cam.x;
+    const wy = this.mouseSY / this.view.scale + this.cam.y;
+    this.aimX = clamp(wx, 0, this.worldW);
+    this.aimY = clamp(wy, 0, this.worldH);
 
     let ix = 0, iy = 0;
     if (this.keySet.has("KeyW") || this.keySet.has("ArrowUp")) iy -= 1;
@@ -588,8 +682,8 @@ export class Engine {
       this.px += ix * s.moveSpd * dt;
       this.py += iy * s.moveSpd * dt;
     }
-    this.px = clamp(this.px, WALL + this.pr, W - WALL - this.pr);
-    this.py = clamp(this.py, WALL + this.pr, H - WALL - this.pr);
+    this.px = clamp(this.px, WALL + this.pr, this.worldW - WALL - this.pr);
+    this.py = clamp(this.py, WALL + this.pr, this.worldH - WALL - this.pr);
     for (const o of this.obstacles) this.collideRect(this.pr, o);
 
     // firing
@@ -829,7 +923,7 @@ export class Engine {
 
   private killEnemy(e: Enemy) {
     this.kills++;
-    const boss = e.kind === "boss";
+    const boss = isBossKind(e.kind);
     // gore decal
     this.splat(e.x, e.y, e.r * (boss ? 2.4 : 1.5));
     this.burst(e.x, e.y, boss ? 46 : 14, boss ? "#ff3b57" : this.foeColor(e.kind), boss ? 380 : 200, true);
@@ -858,7 +952,7 @@ export class Engine {
       this.dropGold(e.x, e.y, 60);
       this.pickups.push({ kind: "heart", x: e.x, y: e.y + 30, t: 0, val: 40 });
     } else {
-      const gc: Record<EnemyKind, number> = { wisp: 0.6, spitter: 0.7, brute: 0.9, generator: 1, boss: 1 };
+      const gc: Record<EnemyKind, number> = { wisp: 0.6, spitter: 0.7, brute: 0.9, generator: 1, boss: 1, bossOx: 1, bossHorse: 1, bossBone: 1 };
       if (Math.random() < gc[e.kind]) {
         const v = e.kind === "brute" ? rand(4, 6) : e.kind === "spitter" ? rand(2, 3) : rand(1, 2);
         this.dropGold(e.x, e.y, v);
@@ -874,7 +968,15 @@ export class Engine {
     if (idx >= 0) this.enemies.splice(idx, 1);
 
     if (boss) {
-      // wipe remaining mobs
+      const duo = this.bossTier === 1;
+      const anyLeft = this.enemies.some((o) => isBossKind(o.kind));
+      if (duo && anyLeft) {
+        // the first warden falls — the other fights on
+        this.shake = Math.max(this.shake, 12);
+        this.setBanner("A WARDEN FALLS", "THE OTHER FIGHTS ON", "#ffc23d");
+        return;
+      }
+      // last boss of the room — wipe the remaining mobs
       for (const o of [...this.enemies]) {
         this.splat(o.x, o.y, o.r);
         this.burst(o.x, o.y, 12, this.foeColor(o.kind), 220, true);
@@ -883,18 +985,27 @@ export class Engine {
       this.ebullets = [];
       this.flash = 0.7;
       this.shake = 22;
-      if (this.depth === 10) {
-        this.setBanner("TAOTIE SLAIN", "THE CRYPT LIES OPEN", "#ffc23d");
+      this.bossesSlain++;
+      let note = "";
+      if (!this.canStack) {
+        this.canStack = true;
+        note = " · BOONS MAY NOW STACK";
+      }
+      if (this.worldScale < 8) {
+        this.pendingGrowth = true;
+        note += " · THE CRYPT WILL EXPAND";
+      }
+      if (this.depth === 15) {
+        this.setBanner("THE EMPRESS SHATTERS", "THE CRYPT LIES OPEN", "#ffc23d");
         this.state = "victory";
         this.victoryT = 1.5;
         sfx.victory();
       } else {
-        // endless boss — treat as cleared chamber
         this.state = "cleared";
         this.clearT = 1.1;
         const gained = Math.round((40 + this.depth * 3) * this.meta.goldMult);
         this.runGold += gained;
-        this.setBanner("TAOTIE SLAIN", `+${gained} SOULS · IT WILL RETURN`, "#ffc23d");
+        this.setBanner(`${this.bossName(this.bossTier)} SLAIN`, `+${gained} SOULS${note}`, "#ffc23d");
         sfx.clear();
       }
     }
@@ -906,8 +1017,8 @@ export class Engine {
     for (let i = 0; i < n; i++) {
       this.pickups.push({
         kind: "gold",
-        x: clamp(x + rand(-18, 18), WALL + 20, W - WALL - 20),
-        y: clamp(y + rand(-18, 18), WALL + 20, H - WALL - 20),
+        x: clamp(x + rand(-18, 18), WALL + 20, this.worldW - WALL - 20),
+        y: clamp(y + rand(-18, 18), WALL + 20, this.worldH - WALL - 20),
         t: rand(0, 2), val: Math.max(1, Math.round(val / n)),
       });
     }
@@ -997,10 +1108,22 @@ export class Engine {
           this.updateBoss(e, dt, dx / d, dy / d, d);
           break;
         }
+        case "bossOx": {
+          this.updateBossOx(e, dt, dx / d, dy / d, d);
+          break;
+        }
+        case "bossHorse": {
+          this.updateBossHorse(e, dt, dx / d, dy / d, d);
+          break;
+        }
+        case "bossBone": {
+          this.updateBossBone(e, dt, dx / d, dy / d, d);
+          break;
+        }
       }
 
-      e.x = clamp(e.x, WALL + e.r, W - WALL - e.r);
-      e.y = clamp(e.y, WALL + e.r, H - WALL - e.r);
+      e.x = clamp(e.x, WALL + e.r, this.worldW - WALL - e.r);
+      e.y = clamp(e.y, WALL + e.r, this.worldH - WALL - e.r);
       if (e.kind !== "generator") {
         for (const o of this.obstacles) {
           const cx = clamp(e.x, o.x, o.x + o.w), cy = clamp(e.y, o.y, o.y + o.h);
@@ -1061,6 +1184,160 @@ export class Engine {
       }
     }
     void d;
+  }
+
+  /* Ox-Head — the heavy warden: pursuit, soul-nova, telegraphed gore charge. */
+  private updateBossOx(e: Enemy, dt: number, nx: number, ny: number, d: number) {
+    e.stateT -= dt;
+    if (e.state === 0) {
+      e.x += nx * e.spd * dt;
+      e.y += ny * e.spd * dt;
+      e.atkCd -= dt;
+      if (e.atkCd <= 0) {
+        e.atkCd = 3.0;
+        const n = 14;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + e.t * 0.7;
+          this.ebullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 215, vy: Math.sin(a) * 215, r: 7, dmg: 10, life: 3.2 });
+        }
+        this.ring(e.x, e.y, 54, "#e2694a");
+        sfx.bone();
+      }
+      if (e.stateT <= 0 && d < 540) {
+        e.state = 1; e.stateT = 0.65; e.tx = nx; e.ty = ny;
+        sfx.bossRoar();
+      }
+    } else if (e.state === 1) {
+      if (e.stateT <= 0) { e.state = 2; e.stateT = 0.52; sfx.dash(); this.shake = Math.max(this.shake, 5); }
+    } else {
+      e.x += e.tx * 680 * dt;
+      e.y += e.ty * 680 * dt;
+      if (Math.random() < 0.7) this.burst(e.x, e.y, 3, "#e2694a", 130, true);
+      if (e.stateT <= 0) {
+        this.ring(e.x, e.y, 70, "#e2694a");
+        this.shake = Math.max(this.shake, 7);
+        e.state = 0; e.stateT = rand(2.2, 3.0);
+      }
+    }
+  }
+
+  /* Horse-Face — the ranged warden: keeps its distance, fans soul-fire, calls reinforcements. */
+  private updateBossHorse(e: Enemy, dt: number, nx: number, ny: number, d: number) {
+    const want = 330;
+    const dir = d > want + 40 ? 1 : d < want - 40 ? -1 : 0;
+    const strafe = Math.sin(e.t * 1.4 + e.seed) * 86;
+    e.x += (nx * e.spd * dir + -ny * strafe * 0.5) * dt;
+    e.y += (ny * e.spd * dir + nx * strafe * 0.5) * dt;
+    e.atkCd -= dt;
+    if (e.atkCd <= 0 && d < 640) {
+      e.atkCd = 1.5 * rand(0.9, 1.1);
+      const base = Math.atan2(this.py - e.y, this.px - e.x);
+      for (let i = -1; i <= 1; i++) {
+        const a = base + i * 0.24;
+        this.ebullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * 275, vy: Math.sin(a) * 275, r: 6, dmg: Math.round(e.dmg * 0.55), life: 3 });
+      }
+      this.burst(e.x, e.y, 5, "#8dff4d", 100, true);
+      sfx.hit();
+    }
+    e.stateT -= dt;
+    if (e.stateT <= 0) {
+      e.stateT = 5.5;
+      for (let i = 0; i < 2; i++) {
+        if (this.enemies.length >= 40) break;
+        const a = rand(0, Math.PI * 2);
+        this.spawnEnemy("wisp", e.x + Math.cos(a) * 60, e.y + Math.sin(a) * 60, 1 + (this.depth - 1) * 0.16, 1 + (this.depth - 1) * 0.08);
+        this.burst(e.x + Math.cos(a) * 60, e.y + Math.sin(a) * 60, 6, "#c26bff", 140, true);
+      }
+      sfx.genDie();
+    }
+  }
+
+  /* Lady White Bone — the Bone Empress: drifting horror, bone rings, blinks across the crypt. */
+  private updateBossBone(e: Enemy, dt: number, nx: number, ny: number, d: number) {
+    const enraged = e.hp < e.maxHp * 0.5;
+    const wob = Math.sin(e.t * 3.2 + e.seed) * 40;
+    e.x += (nx * e.spd * (enraged ? 0.8 : 0.55) + -ny * wob * 0.4) * dt;
+    e.y += (ny * e.spd * (enraged ? 0.8 : 0.55) + nx * wob * 0.4) * dt;
+    e.atkCd -= dt;
+    if (e.atkCd <= 0) {
+      e.atkCd = enraged ? 1.5 : 2.1;
+      const n = enraged ? 20 : 14;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + e.t;
+        this.ebullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * (enraged ? 265 : 225), vy: Math.sin(a) * (enraged ? 265 : 225), r: 6, dmg: 10, life: 3.2 });
+      }
+      this.ring(e.x, e.y, 48, "#e8ddcf");
+      sfx.bone();
+    }
+    e.stateT -= dt;
+    if (e.stateT <= 0) {
+      e.stateT = enraged ? 2.6 : 3.4;
+      // blink away
+      this.burst(e.x, e.y, 16, "#e8ddcf", 220, true);
+      sfx.teleport();
+      const spot = this.freeSpot(40, 240);
+      e.x = spot.x; e.y = spot.y;
+      this.ring(e.x, e.y, 60, "#ff6ea9");
+      this.burst(e.x, e.y, 14, "#ff6ea9", 200, true);
+      if (enraged) {
+        for (let i = 0; i < 2; i++) {
+          if (this.enemies.length >= 40) break;
+          const a = rand(0, Math.PI * 2);
+          this.spawnEnemy("wisp", e.x + Math.cos(a) * 60, e.y + Math.sin(a) * 60, 1 + (this.depth - 1) * 0.16, 1 + (this.depth - 1) * 0.08);
+        }
+        sfx.genDie();
+      }
+    }
+    void d;
+  }
+
+  /* Clay guardians — summoned by Nüwa's boon, they fight beside you with any weapon. */
+  private updateSentinels(dt: number) {
+    const n = Math.min(this.stats.sentinel, 6);
+    while (this.sentinels.length < n) {
+      this.sentinels.push({ x: this.px, y: this.py, seed: this.sentinels.length * 2.39 + rand(0, 1), atk: rand(0, 0.4), swing: 0, face: 1 });
+      this.ring(this.px, this.py, 30, "#ff6ea9");
+      this.burst(this.px, this.py, 10, "#c98d5f", 150, true);
+    }
+    if (this.sentinels.length > n) this.sentinels.length = n;
+    for (const s of this.sentinels) {
+      s.swing = Math.max(0, s.swing - dt);
+      let target: Enemy | null = null;
+      let bd = 300 * 300;
+      for (const e of this.enemies) {
+        if (e.hp <= 0) continue;
+        const dv = dist2(s.x, s.y, e.x, e.y);
+        if (dv < bd) { bd = dv; target = e; }
+      }
+      if (target) {
+        const d = Math.sqrt(bd) || 1;
+        const nx = (target.x - s.x) / d, ny = (target.y - s.y) / d;
+        if (Math.abs(nx) > 0.1) s.face = nx > 0 ? 1 : -1;
+        const reach = target.r + 26;
+        if (d > reach) {
+          s.x += nx * 260 * dt;
+          s.y += ny * 260 * dt;
+        }
+        s.atk -= dt;
+        if (s.atk <= 0 && d <= reach + 10) {
+          s.atk = 0.55;
+          s.swing = 0.2;
+          this.damageEnemy(target, this.stats.sentinelDmg, false);
+          this.burst(target.x, target.y, 3, "#e8b48a", 110, true);
+          sfx.swipe();
+        }
+      } else {
+        const a = s.seed + this.animT * 1.15;
+        const tx = this.px + Math.cos(a) * 56;
+        const ty = this.py + Math.sin(a) * 56;
+        s.x += (tx - s.x) * Math.min(1, dt * 9);
+        s.y += (ty - s.y) * Math.min(1, dt * 9);
+        if (Math.abs(this.px - s.x) > 2) s.face = this.px > s.x ? 1 : -1;
+        s.atk = Math.min(s.atk, 0.25);
+      }
+      s.x = clamp(s.x, WALL + 10, this.worldW - WALL - 10);
+      s.y = clamp(s.y, WALL + 10, this.worldH - WALL - 10);
+    }
   }
 
   private updateEBullets(dt: number) {
@@ -1131,8 +1408,8 @@ export class Engine {
     this.hurtFlash = 0.8;
     this.shake = Math.max(this.shake, 8);
     const d = Math.hypot(kx, ky) || 1;
-    this.px = clamp(this.px + (kx / d) * 26, WALL + this.pr, W - WALL - this.pr);
-    this.py = clamp(this.py + (ky / d) * 26, WALL + this.pr, H - WALL - this.pr);
+    this.px = clamp(this.px + (kx / d) * 26, WALL + this.pr, this.worldW - WALL - this.pr);
+    this.py = clamp(this.py + (ky / d) * 26, WALL + this.pr, this.worldH - WALL - this.pr);
     this.floaters.push({ x: this.px, y: this.py - 22, life: 0.8, max: 0.8, text: `-${Math.round(dmg)}`, color: "#ff3b57", size: 18 });
     this.burst(this.px, this.py, 10, "#ff3b57", 190, true);
     sfx.hurt();
@@ -1162,7 +1439,7 @@ export class Engine {
       sfx.locked();
       return;
     }
-    const targets = this.enemies.filter((e) => e.kind !== "boss");
+    const targets = this.enemies.filter((e) => !isBossKind(e.kind));
     if (targets.length === 0) { sfx.locked(); return; }
     this.potions--;
     this.flash = 0.9;
@@ -1174,7 +1451,7 @@ export class Engine {
       this.dropGold(e.x, e.y, e.kind === "generator" ? 4 : 1);
       this.kills++;
     }
-    this.enemies = this.enemies.filter((e) => e.kind === "boss");
+    this.enemies = this.enemies.filter((e) => isBossKind(e.kind));
     this.ebullets = [];
     this.emitHud();
   }
@@ -1300,6 +1577,9 @@ export class Engine {
       case "brute": return "#9aa7b8";
       case "generator": return "#c26bff";
       case "boss": return "#ff3b57";
+      case "bossOx": return "#e2694a";
+      case "bossHorse": return "#8dff4d";
+      case "bossBone": return "#e8ddcf";
     }
   }
 
@@ -1329,15 +1609,28 @@ export class Engine {
   }
 
   private splat(x: number, y: number, r: number) {
-    if (!this.decalCv) return;
-    const c = this.decalCv.getContext("2d")!;
-    c.fillStyle = "rgba(96,8,24,0.4)";
-    for (let i = 0; i < 8; i++) {
-      const a = rand(0, Math.PI * 2);
-      const d = rand(0, r * 1.6);
-      c.beginPath();
-      c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, rand(2, r * 0.45), 0, Math.PI * 2);
-      c.fill();
+    this.decals.push({ x, y, r, seed: Math.random() * 100000 });
+    if (this.decals.length > 420) this.decals.shift();
+  }
+
+  private drawDecals(ctx: CanvasRenderingContext2D) {
+    const vx0 = this.cam.x - 80, vy0 = this.cam.y - 80;
+    const vx1 = this.cam.x + this.view.vw + 80, vy1 = this.cam.y + this.view.vh + 80;
+    ctx.fillStyle = "rgba(96,8,24,0.4)";
+    for (const dc of this.decals) {
+      if (dc.x < vx0 || dc.x > vx1 || dc.y < vy0 || dc.y > vy1) continue;
+      let s = dc.seed;
+      const rnd = () => {
+        s = (s * 9301 + 49297) % 233280;
+        return s / 233280;
+      };
+      for (let i = 0; i < 7; i++) {
+        const a = rnd() * Math.PI * 2;
+        const dd = rnd() * dc.r * 1.6;
+        ctx.beginPath();
+        ctx.arc(dc.x + Math.cos(a) * dd, dc.y + Math.sin(a) * dd, 2 + rnd() * dc.r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
@@ -1373,7 +1666,14 @@ export class Engine {
   }
 
   private emitHud() {
-    const boss = this.enemies.find((e) => e.kind === "boss");
+    const bosses = this.enemies.filter((e) => isBossKind(e.kind));
+    const boss = bosses.length > 0
+      ? {
+          hp: Math.max(0, Math.round(bosses.reduce((a, b) => a + Math.max(0, b.hp), 0))),
+          max: Math.round(bosses.reduce((a, b) => a + b.maxHp, 0)),
+          name: ["", "OX-HEAD & HORSE-FACE", "TAOTIE · THE INSATIABLE", "LADY WHITE BONE"][this.bossTier] ?? "TAOTIE",
+        }
+      : null;
     this.cb.hud({
       hp: Math.max(0, Math.round(this.hp)),
       maxHp: Math.round(this.stats.maxHp),
@@ -1387,7 +1687,7 @@ export class Engine {
       gens: this.enemies.filter((e) => e.kind === "generator").length,
       drain: 1.1 + (this.depth - 1) * 0.07,
       weapon: this.weapon,
-      boss: boss ? { hp: Math.max(0, Math.round(boss.hp)), max: Math.round(boss.maxHp), name: "TAOTIE · THE INSATIABLE" } : null,
+      boss,
       boons: this.owned.map((o) => {
         const g = Object.values(GODS).find((gg) => BOON_GOD[o.id] === gg.id);
         return { god: BOON_GOD[o.id] ?? "", color: g?.color ?? "#fff", tier: o.tier, name: o.id };

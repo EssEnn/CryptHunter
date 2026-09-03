@@ -1,0 +1,196 @@
+@import "tailwindcss";
+
+:root {
+  --gold: #ffc23d;
+  --gold-dim: #8a6a24;
+  --ember: #ff7a2f;
+  --blood: #ff3b57;
+  --frost: #43d6ff;
+  --bone: #e8ddcf;
+  --iron: #17101f;
+  --iron-2: #221730;
+  --iron-edge: #4a3558;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  background: #07040b;
+  color: var(--bone);
+  font-family: "Barlow Condensed", "Noto Sans SC", "Arial Narrow", sans-serif;
+}
+
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.font-display {
+  font-family: "Cinzel", "ZCOOL XiaoWei", Georgia, serif;
+}
+.font-ui {
+  font-family: "Barlow Condensed", "Noto Sans SC", "Arial Narrow", sans-serif;
+}
+.font-brush {
+  font-family: "Ma Shan Zheng", "ZCOOL XiaoWei", cursive;
+}
+.font-hanzi {
+  font-family: "ZCOOL XiaoWei", "Noto Sans SC", serif;
+}
+
+/* giant calligraphic watermark on boon cards */
+.hanzi-mark {
+  position: absolute;
+  right: -6px;
+  bottom: -34px;
+  font-size: 150px;
+  line-height: 1;
+  opacity: 0.12;
+  pointer-events: none;
+  filter: blur(0.4px);
+}
+
+/* ---------- iron plate chrome ---------- */
+.plate {
+  position: relative;
+  background: linear-gradient(168deg, rgba(36, 24, 48, 0.92), rgba(19, 12, 26, 0.94));
+  border: 1px solid var(--iron-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 210, 140, 0.12),
+    inset 0 -14px 30px rgba(0, 0, 0, 0.45),
+    0 10px 30px rgba(0, 0, 0, 0.55);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.plate-rivets::before,
+.plate-rivets::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: radial-gradient(circle at 35% 30%, #ffe2a0, #8a6a24 70%);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(255, 194, 61, 0.45);
+}
+.plate-rivets::before { top: 7px; left: 14px; }
+.plate-rivets::after { bottom: 7px; right: 14px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.09s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+.btn:active { transform: translateY(2px) scale(0.99); }
+.btn-ember {
+  background: linear-gradient(180deg, #ff8a3d, #c2310f 55%, #7d130a);
+  color: #ffe9c9;
+  border: 1px solid #ffb45e;
+  box-shadow: 0 0 22px rgba(255, 122, 47, 0.35), inset 0 1px 0 rgba(255, 235, 190, 0.55);
+  text-shadow: 0 1px 0 rgba(90, 10, 0, 0.8);
+}
+.btn-ember:hover {
+  box-shadow: 0 0 34px rgba(255, 138, 61, 0.6), inset 0 1px 0 rgba(255, 235, 190, 0.7);
+  filter: brightness(1.1);
+}
+.btn-iron {
+  background: linear-gradient(180deg, #33244a, #1a1126 60%, #120b1a);
+  color: #d8cbea;
+  border: 1px solid #5a4470;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.btn-iron:hover { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 18px rgba(255, 194, 61, 0.25), inset 0 1px 0 rgba(255,255,255,0.12); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.6); }
+
+/* ---------- keycaps ---------- */
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 7px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: #ffe2b0;
+  background: linear-gradient(180deg, #3a2b4c, #1c1328);
+  border: 1px solid #5a4470;
+  border-bottom: 3px solid #6d5327;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- animations ---------- */
+@keyframes emberRise {
+  0% { transform: translateY(12vh) scale(1); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: translateY(-105vh) scale(0.25); opacity: 0; }
+}
+@keyframes titleFlicker {
+  0%, 100% { text-shadow: 0 0 18px rgba(255, 122, 47, 0.55), 0 0 60px rgba(255, 60, 20, 0.3), 0 4px 0 #3a0d05; }
+  46% { text-shadow: 0 0 26px rgba(255, 140, 60, 0.8), 0 0 90px rgba(255, 70, 25, 0.45), 0 4px 0 #3a0d05; }
+  52% { text-shadow: 0 0 14px rgba(255, 122, 47, 0.4), 0 0 44px rgba(255, 60, 20, 0.22), 0 4px 0 #3a0d05; }
+  58% { text-shadow: 0 0 30px rgba(255, 150, 70, 0.9), 0 0 100px rgba(255, 80, 30, 0.5), 0 4px 0 #3a0d05; }
+}
+@keyframes riseIn {
+  from { transform: translateY(26px) scale(0.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes fadeUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes deathPulse {
+  0%, 100% { text-shadow: 0 0 22px rgba(255, 59, 87, 0.5), 0 0 80px rgba(180, 10, 40, 0.35), 0 4px 0 #2b040c; }
+  50% { text-shadow: 0 0 40px rgba(255, 59, 87, 0.85), 0 0 120px rgba(200, 15, 50, 0.55), 0 4px 0 #2b040c; }
+}
+@keyframes goldPulse {
+  0%, 100% { text-shadow: 0 0 20px rgba(255, 194, 61, 0.5), 0 4px 0 #3a2a05; }
+  50% { text-shadow: 0 0 42px rgba(255, 214, 110, 0.85), 0 4px 0 #3a2a05; }
+}
+@keyframes hpStripes {
+  from { background-position: 0 0; }
+  to { background-position: 28px 0; }
+}
+@keyframes sigilSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.anim-title { animation: titleFlicker 3.4s infinite; }
+.anim-death { animation: deathPulse 2.2s infinite; }
+.anim-gold { animation: goldPulse 2.6s infinite; }
+.anim-rise { animation: riseIn 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.anim-fade { animation: fadeUp 0.4s ease both; }
+
+.hp-fill {
+  background-image: linear-gradient(180deg, #ff7a5e, #e2263f 48%, #8f0f2b),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.14) 0 8px, transparent 8px 14px);
+  background-blend-mode: overlay, normal;
+  animation: hpStripes 0.9s linear infinite;
+  box-shadow: 0 0 14px rgba(255, 59, 87, 0.55);
+}
+
+/* boon card rarity frames */
+.rarity-0 { border-color: #7e93ab; }
+.rarity-0:hover { box-shadow: 0 0 26px rgba(169, 189, 209, 0.35); }
+.rarity-1 { border-color: #43d6ff; }
+.rarity-1:hover { box-shadow: 0 0 30px rgba(67, 214, 255, 0.45); }
+.rarity-2 { border-color: #ffc23d; }
+.rarity-2:hover { box-shadow: 0 0 34px rgba(255, 194, 61, 0.5); }
+
+.boon-card {
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.boon-card:hover { transform: translateY(-8px) scale(1.03); }
+
+.shrine-scroll::-webkit-scrollbar { width: 8px; }
+.shrine-scroll::-webkit-scrollbar-thumb { background: #4a3558; border: 2px solid #17101f; }
+.shrine-scroll::-webkit-scrollbar-track { background: #120b1a; }

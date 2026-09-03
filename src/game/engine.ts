@@ -23,6 +23,8 @@ export interface HudBoon {
   name: string;
 }
 
+export type WeaponId = "bow" | "sword" | "spear";
+
 export interface HudData {
   hp: number;
   maxHp: number;
@@ -35,6 +37,7 @@ export interface HudData {
   foes: number;
   gens: number;
   drain: number;
+  weapon: WeaponId;
   boss: { hp: number; max: number; name: string } | null;
   boons: HudBoon[];
 }
@@ -87,6 +90,7 @@ interface Enemy {
 interface Bullet {
   x: number; y: number; vx: number; vy: number; r: number;
   dmg: number; life: number; pierce: number; hit: number[]; bounces: number; crit: boolean;
+  w: WeaponId;
 }
 interface EBullet { x: number; y: number; vx: number; vy: number; r: number; dmg: number; life: number }
 interface Particle {
@@ -121,6 +125,7 @@ export class Engine {
 
   // run data
   private meta: MetaInput = { maxHp: 100, dmgMult: 1, dashCdMult: 1, potions: 1, goldMult: 1 };
+  private weapon: WeaponId = "bow";
   private stats: Stats = baseStats(this.meta);
   private owned: OwnedBoon[] = [];
   depth = 0;
@@ -144,6 +149,7 @@ export class Engine {
   private potions = 1;
   private keysHeld = 0;
   private animT = 0;
+  private slashFx: { x: number; y: number; ang: number; life: number; max: number; range: number; arc: number }[] = [];
 
   // world
   private obstacles: Rect[] = [];
@@ -217,7 +223,6 @@ export class Engine {
       if (c === "Space" || c === "ShiftLeft" || c === "ShiftRight") this.tryDash();
       if (c === "KeyQ" || c === "KeyE") this.drinkPotion();
       if (c === "KeyP" || c === "Escape") this.togglePause();
-      if (c === "KeyM") sfx.toggleMute();
     });
     on<"keyup">(window, "keyup", (e) => this.keySet.delete(e.code));
     on<"mousemove">(window, "mousemove", (e) => {
@@ -269,8 +274,9 @@ export class Engine {
     this.makeFloor(true);
   }
 
-  startRun(meta: MetaInput) {
+  startRun(meta: MetaInput, weapon: WeaponId) {
     this.meta = meta;
+    this.weapon = weapon;
     this.mode = "run";
     this.paused = false;
     this.owned = [];
@@ -282,7 +288,9 @@ export class Engine {
     this.potions = meta.potions;
     this.keysHeld = 0;
     this.bonusMaxHp = 0;
+    this.slashFx = [];
     this.stats = baseStats(meta);
+    this.recompute();
     this.hp = this.stats.maxHp;
     this.dashCharges = this.stats.dashMax;
     sfx.uiSelect();
@@ -319,6 +327,16 @@ export class Engine {
     this.stats = baseStats(this.meta);
     applyOwned(this.stats, this.owned);
     this.stats.maxHp += this.bonusMaxHp;
+    // weapon temperament
+    if (this.weapon === "spear") {
+      this.stats.rate *= 0.55;
+      this.stats.dmg *= 2.0;
+      this.stats.projSpd *= 0.82;
+      this.stats.pierce += 1;
+    } else if (this.weapon === "bow") {
+      this.stats.rate *= 1.1;
+    }
+    // sword keeps the raw stats — its arc swing scales with dmg, rate, crit and friends
   }
 
   /** Public so the boon-draft UI can advance after a choice. */
@@ -360,8 +378,8 @@ export class Engine {
     this.decalCv.width = W; this.decalCv.height = H;
     this.buildObstacles();
     this.populateChamber();
-    const sub = this.bossRoom ? "饕餮在等你 · SLAY THE TAOTIE" : `妖泉 ×${this.enemies.filter((e) => e.kind === "generator").length} · DESTROY THE SPAWNFONTS`;
-    this.setBanner(this.bossRoom ? "饿鬼王座" : `第 ${this.depth} 层`, sub, this.bossRoom ? "#ff3b57" : "#ffc23d");
+    const sub = this.bossRoom ? "THE TAOTIE AWAITS · SLAY IT" : `SPAWNFONTS ×${this.enemies.filter((e) => e.kind === "generator").length} — DESTROY THEM ALL`;
+    this.setBanner(this.bossRoom ? "THE THRONE OF HUNGER" : `CHAMBER ${this.depth}`, sub, this.bossRoom ? "#ff3b57" : "#ffc23d");
     if (this.bossRoom) sfx.bossRoar();
     this.emitHud();
   }
@@ -578,8 +596,13 @@ export class Engine {
     this.fireCd -= dt;
     const wantFire = this.mouseDown || this.keySet.has("KeyJ");
     if (wantFire && this.fireCd <= 0) {
-      this.fireCd = 1 / s.rate;
-      this.fireShot();
+      if (this.weapon === "sword") {
+        this.fireCd = clamp((0.36 * 4.3) / s.rate, 0.14, 0.4);
+        this.slash();
+      } else {
+        this.fireCd = 1 / s.rate;
+        this.fireShot();
+      }
     }
   }
 
@@ -652,11 +675,55 @@ export class Engine {
         hit: [],
         bounces: 0,
         crit,
+        w: this.weapon,
       });
     }
     this.recoil = 1;
     this.burst(this.px + Math.cos(base) * 20, this.py + Math.sin(base) * 20, 3, anyCrit ? "#ffc23d" : "#ff9a4d", 90, true);
-    sfx.shoot();
+    if (this.weapon === "spear") sfx.spear(); else sfx.shoot();
+  }
+
+  private slash() {
+    const s = this.stats;
+    const base = Math.atan2(this.aimY - this.py, this.aimX - this.px);
+    const lowHp = this.hp / s.maxHp < 0.4 ? s.lowHpMult : 1;
+    const range = 96;
+    const halfArc = 1.05 + (s.multishot - 1) * 0.22;
+    this.slashFx.push({ x: this.px, y: this.py, ang: base, life: 0.17, max: 0.17, range, arc: halfArc });
+    // a blade's lunge
+    this.px = clamp(this.px + Math.cos(base) * 11, WALL + this.pr, W - WALL - this.pr);
+    this.py = clamp(this.py + Math.sin(base) * 11, WALL + this.pr, H - WALL - this.pr);
+    this.recoil = 1;
+    let hitAny = false;
+    for (const e of this.enemies) {
+      if (e.hp <= 0) continue;
+      const dx = e.x - this.px, dy = e.y - this.py;
+      const d = Math.hypot(dx, dy);
+      if (d - e.r > range) continue;
+      let da = Math.atan2(dy, dx) - base;
+      while (da > Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      if (Math.abs(da) > halfArc + Math.atan2(e.r, Math.max(d, 1))) continue;
+      hitAny = true;
+      const crit = Math.random() < s.crit;
+      this.damageEnemy(e, s.dmg * 1.5 * lowHp * (crit ? 2 : 1), crit);
+      if (s.explode > 0) this.explode(e.x, e.y, s.explode, s.dmg * 0.6, e.id);
+      if (e.hp > 0) { e.x += Math.cos(base) * 7; e.y += Math.sin(base) * 7; }
+    }
+    if (hitAny) this.shake = Math.max(this.shake, 2.6);
+    sfx.slash();
+    this.burst(this.px + Math.cos(base) * 44, this.py + Math.sin(base) * 44, 4, "#dfe8ff", 150, true);
+    // Three Heads, Six Arms — extra limbs hurl sword-qi crescents
+    if (s.multishot > 1) {
+      for (let i = 1; i < s.multishot; i++) {
+        const a = base + (i % 2 === 0 ? 1 : -1) * 0.55 * Math.ceil(i / 2);
+        this.bullets.push({
+          x: this.px + Math.cos(a) * 20, y: this.py + Math.sin(a) * 20,
+          vx: Math.cos(a) * s.projSpd * 0.72, vy: Math.sin(a) * s.projSpd * 0.72,
+          r: 6, dmg: s.dmg * 0.8 * lowHp, life: 0.42, pierce: 0, hit: [], bounces: 0, crit: false, w: "sword",
+        });
+      }
+    }
   }
 
   private updateBullets(dt: number) {
@@ -817,7 +884,7 @@ export class Engine {
       this.flash = 0.7;
       this.shake = 22;
       if (this.depth === 10) {
-        this.setBanner("饕餮已诛", "TAOTIE SLAIN · THE CRYPT LIES OPEN", "#ffc23d");
+        this.setBanner("TAOTIE SLAIN", "THE CRYPT LIES OPEN", "#ffc23d");
         this.state = "victory";
         this.victoryT = 1.5;
         sfx.victory();
@@ -827,7 +894,7 @@ export class Engine {
         this.clearT = 1.1;
         const gained = Math.round((40 + this.depth * 3) * this.meta.goldMult);
         this.runGold += gained;
-        this.setBanner("饕餮再诛", `+${gained} SOULS · 它还会回来`, "#ffc23d");
+        this.setBanner("TAOTIE SLAIN", `+${gained} SOULS · IT WILL RETURN`, "#ffc23d");
         sfx.clear();
       }
     }
@@ -1219,7 +1286,7 @@ export class Engine {
       const gained = Math.round(bonus * this.meta.goldMult);
       this.runGold += gained;
       this.hp = clamp(this.hp + 8, 0, this.stats.maxHp);
-      this.setBanner("此层已清", `+${gained} SOULS · 众神在注视`, "#ffc23d");
+      this.setBanner("CHAMBER CLEARED", `+${gained} SOULS · THE GODS ARE WATCHING`, "#ffc23d");
       sfx.clear();
       this.emitHud();
     }
@@ -1279,6 +1346,10 @@ export class Engine {
   }
 
   private updateParticles(dt: number) {
+    for (let i = this.slashFx.length - 1; i >= 0; i--) {
+      this.slashFx[i].life -= dt;
+      if (this.slashFx[i].life <= 0) this.slashFx.splice(i, 1);
+    }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= dt;
@@ -1315,7 +1386,8 @@ export class Engine {
       foes: this.enemies.filter((e) => e.kind !== "generator").length,
       gens: this.enemies.filter((e) => e.kind === "generator").length,
       drain: 1.1 + (this.depth - 1) * 0.07,
-      boss: boss ? { hp: Math.max(0, Math.round(boss.hp)), max: Math.round(boss.maxHp), name: "饕餮 · TAOTIE" } : null,
+      weapon: this.weapon,
+      boss: boss ? { hp: Math.max(0, Math.round(boss.hp)), max: Math.round(boss.maxHp), name: "TAOTIE · THE INSATIABLE" } : null,
       boons: this.owned.map((o) => {
         const g = Object.values(GODS).find((gg) => BOON_GOD[o.id] === gg.id);
         return { god: BOON_GOD[o.id] ?? "", color: g?.color ?? "#fff", tier: o.tier, name: o.id };
@@ -1427,6 +1499,7 @@ export class Engine {
     for (const e of this.enemies) this.drawEnemy(ctx, e, t);
     this.drawPlayer(ctx, t);
     this.drawBullets(ctx);
+    this.drawSlashFx(ctx);
     this.drawParticles(ctx);
     this.drawLight(ctx, t);
     this.drawFloaters(ctx);
@@ -1797,21 +1870,79 @@ export class Engine {
     ctx.restore();
   }
 
+  private drawSlashFx(ctx: CanvasRenderingContext2D) {
+    if (this.slashFx.length === 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const f of this.slashFx) {
+      const p = clamp(f.life / f.max, 0, 1);
+      const sweep = f.arc * (1.55 - 0.55 * p);
+      ctx.globalAlpha = p;
+      for (let k = 0; k < 3; k++) {
+        const rr = f.range * (0.6 + k * 0.2);
+        ctx.strokeStyle = k === 1 ? "rgba(255,255,255,0.9)" : "rgba(150,205,255,0.55)";
+        ctx.lineWidth = k === 1 ? 4 : 2.5;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, rr, f.ang - sweep, f.ang + sweep);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
   private drawBullets(ctx: CanvasRenderingContext2D) {
     ctx.globalCompositeOperation = "lighter";
     for (const b of this.bullets) {
-      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 10);
-      g.addColorStop(0, b.crit ? "rgba(255,224,130,0.95)" : "rgba(255,170,80,0.95)");
-      g.addColorStop(0.4, b.crit ? "rgba(255,194,61,0.5)" : "rgba(255,110,40,0.45)");
-      g.addColorStop(1, "rgba(255,80,20,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "rgba(255,150,60,0.5)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(b.x - b.vx * 0.03, b.y - b.vy * 0.03);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
+      if (b.w === "spear") {
+        // dragon-bone spear — long shaft, crimson tassel, bright head
+        const ang = Math.atan2(b.vy, b.vx);
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(ang);
+        ctx.strokeStyle = "rgba(255,214,130,0.3)";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(-36, 0); ctx.lineTo(-12, 0); ctx.stroke();
+        ctx.fillStyle = "#cdb68d";
+        ctx.fillRect(-16, -1.5, 27, 3);
+        ctx.fillStyle = "#ff3b57";
+        ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(-23, -5.5); ctx.lineTo(-20, 0); ctx.lineTo(-23, 5.5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = b.crit ? "#ffe89a" : "#efe7d4";
+        ctx.beginPath(); ctx.moveTo(11, -4); ctx.lineTo(24, 0); ctx.lineTo(11, 4); ctx.closePath(); ctx.fill();
+        if (b.crit) {
+          ctx.strokeStyle = "rgba(255,194,61,0.8)";
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(4, 0, 13, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
+      } else if (b.w === "sword") {
+        // sword-qi crescent
+        const ang = Math.atan2(b.vy, b.vx);
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(ang);
+        ctx.strokeStyle = "rgba(140,200,255,0.5)";
+        ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.arc(-3, 0, 11, -1, 1); ctx.stroke();
+        ctx.strokeStyle = "rgba(225,240,255,0.95)";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.arc(0, 0, 10, -1.15, 1.15); ctx.stroke();
+        ctx.restore();
+      } else {
+        // spirit bow bolt
+        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 10);
+        g.addColorStop(0, b.crit ? "rgba(255,224,130,0.95)" : "rgba(255,170,80,0.95)");
+        g.addColorStop(0.4, b.crit ? "rgba(255,194,61,0.5)" : "rgba(255,110,40,0.45)");
+        g.addColorStop(1, "rgba(255,80,20,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,150,60,0.5)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(b.x - b.vx * 0.03, b.y - b.vy * 0.03);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
     }
     for (const b of this.ebullets) {
       const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 11);
@@ -1940,7 +2071,7 @@ export class Engine {
       ctx.scale(scaleIn, scaleIn);
       ctx.globalAlpha = a;
       ctx.textAlign = "center";
-      ctx.font = '800 58px "Cinzel", "ZCOOL XiaoWei", serif';
+      ctx.font = '800 58px "Cinzel", serif';
       ctx.strokeStyle = "rgba(0,0,0,0.8)";
       ctx.lineWidth = 8;
       ctx.strokeText(b.text, 0, 0);

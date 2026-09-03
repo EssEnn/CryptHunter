@@ -80,6 +80,8 @@ class Sfx {
   }
 
   shoot() { this.tone({ type: "square", f0: 690, f1: 480, dur: 0.055, vol: 0.035 }); }
+  spear() { this.tone({ type: "square", f0: 330, f1: 170, dur: 0.09, vol: 0.045 }); this.noise(0.06, 0.03, 1600, 1.2); }
+  slash() { this.noise(0.11, 0.08, 500, 1.4, 0, 2600); this.tone({ type: "triangle", f0: 820, f1: 240, dur: 0.07, vol: 0.03 }); }
   hit() { this.tone({ type: "triangle", f0: 340, f1: 200, dur: 0.05, vol: 0.05 }); this.noise(0.04, 0.04, 2400, 0.8); }
   crit() { this.tone({ type: "square", f0: 920, f1: 300, dur: 0.09, vol: 0.06 }); }
   die() { this.tone({ type: "sawtooth", f0: 220, f1: 52, dur: 0.17, vol: 0.06 }); this.noise(0.12, 0.07, 900, 0.7, 0, 220); }

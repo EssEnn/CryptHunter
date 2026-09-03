@@ -1,28 +1,26 @@
-/* The Six Gods of the Hungry Ghost Crypt — boons and stat computation (Hades-like layer). */
+/* Gods of the old folk tales and their boons — the Hades-like layer. */
 
 export type GodId = "nezha" | "leigong" | "mazu" | "houyi" | "yanluo" | "nuwa";
 
 export interface GodDef {
   id: GodId;
   name: string;
-  cn: string; // Chinese name
-  hanzi: string; // calligraphic mark character
   title: string;
   color: string;
   soft: string;
 }
 
 export const GODS: Record<GodId, GodDef> = {
-  nezha: { id: "nezha", name: "NEZHA", cn: "哪吒", hanzi: "哪", title: "Third Lotus Prince", color: "#ff7a2f", soft: "rgba(255,122,47,0.22)" },
-  leigong: { id: "leigong", name: "LEI GONG", cn: "雷公", hanzi: "雷", title: "Duke of Thunder", color: "#ffe14d", soft: "rgba(255,225,77,0.2)" },
-  mazu: { id: "mazu", name: "MAZU", cn: "媽祖", hanzi: "媽", title: "Empress of Heaven", color: "#43d6ff", soft: "rgba(67,214,255,0.2)" },
-  houyi: { id: "houyi", name: "HOU YI", cn: "后羿", hanzi: "羿", title: "The Sun-Shot Archer", color: "#ffb830", soft: "rgba(255,184,48,0.2)" },
-  yanluo: { id: "yanluo", name: "YAN LUO", cn: "閻羅", hanzi: "閻", title: "King of the Ten Courts", color: "#a0ff5e", soft: "rgba(160,255,94,0.18)" },
-  nuwa: { id: "nuwa", name: "NÜWA", cn: "女媧", hanzi: "媧", title: "Mother of Creation", color: "#ff6d8a", soft: "rgba(255,109,138,0.2)" },
+  nezha: { id: "nezha", name: "NEZHA", title: "Third Lotus Prince", color: "#ff8a3d", soft: "rgba(255,138,61,0.22)" },
+  leigong: { id: "leigong", name: "LEI GONG", title: "Duke of Thunder", color: "#c9a2ff", soft: "rgba(201,162,255,0.2)" },
+  mazu: { id: "mazu", name: "MAZU", title: "Empress of Heaven", color: "#4fd8c9", soft: "rgba(79,216,201,0.2)" },
+  houyi: { id: "houyi", name: "HOU YI", title: "The Sun-Shot Archer", color: "#ffc23d", soft: "rgba(255,194,61,0.2)" },
+  yanluo: { id: "yanluo", name: "YAN LUO", title: "King of the Ten Courts", color: "#7ee08a", soft: "rgba(126,224,138,0.18)" },
+  nuwa: { id: "nuwa", name: "NÜWA", title: "Mother of Creation", color: "#ff6ea9", soft: "rgba(255,110,169,0.2)" },
 };
 
-export const TIER_NAMES = ["COMMON", "RARE", "EPIC"] as const;
-export const TIER_COLORS = ["#a9bdd1", "#43d6ff", "#ffc23d"] as const;
+export const TIER_NAMES = ["RARE", "EPIC", "LEGENDARY"] as const;
+export const TIER_COLORS = ["#43d6ff", "#b18cff", "#ffc23d"] as const;
 
 export interface MetaInput {
   maxHp: number;
@@ -81,143 +79,137 @@ export function baseStats(m: MetaInput): Stats {
 export interface BoonDef {
   id: string;
   god: GodId;
-  name: string; // Chinese name
-  en: string; // English gloss
+  name: string;
   desc: (t: number) => string;
   apply: (s: Stats, t: number) => void;
 }
 
 export const BOONS: BoonDef[] = [
-  // ================= 哪吒 NEZHA · fire & fury =================
+  // ------- NEZHA · the whirlwind prince -------
   {
-    id: "nez_spear", god: "nezha", name: "火尖枪", en: "Fiery-Tipped Spear",
-    desc: (t) => `Your shots skewer through ${["+1 enemy", "+1 enemy", "+2 enemies"][t]}, flying 15% faster.`,
+    id: "nez_pierce", god: "nezha", name: "Fire-Tipped Spear",
+    desc: (t) => `Your strikes pierce ${["+1 foe", "+1 foe", "+2 foes"][t]} and fly 15% faster.`,
     apply: (s, t) => { s.pierce += [1, 1, 2][t]; s.projSpd *= 1.15; },
   },
   {
-    id: "nez_arms", god: "nezha", name: "三头六臂", en: "Three Heads, Six Arms",
-    desc: (t) => `Manifest extra arms — loose ${["+1", "+1", "+2"][t]} additional bolt${["", "", "s"]} with every volley.`,
-    apply: (s, t) => { s.multishot += [1, 1, 2][t]; },
+    id: "nez_multi", god: "nezha", name: "Three Heads, Six Arms",
+    desc: (t) => `Strike ${["twice", "thrice", "four times"][t]} with every attack, fanned wide.`,
+    apply: (s, t) => { s.multishot = [2, 3, 4][t]; },
   },
   {
-    id: "nez_wheels", god: "nezha", name: "风火轮", en: "Wind Fire Wheels",
-    desc: (t) => `Blazing wheels bear you: +${["18%", "26%", "35%"][t]} move speed, dash recharges ${["10%", "15%", "20%"][t]} faster.`,
-    apply: (s, t) => { s.moveSpd *= [1.18, 1.26, 1.35][t]; s.dashCd *= [0.9, 0.85, 0.8][t]; },
+    id: "nez_speed", god: "nezha", name: "Wind-Fire Wheels",
+    desc: (t) => `Wheels of flame underfoot — ${["+12%", "+18%", "+26%"][t]} move speed, dash returns ${["15%", "22%", "30%"][t]} sooner.`,
+    apply: (s, t) => { s.moveSpd *= [1.12, 1.18, 1.26][t]; s.dashCd *= [0.85, 0.78, 0.7][t]; },
   },
   {
-    id: "nez_ring", god: "nezha", name: "乾坤圈", en: "Universe Ring",
-    desc: (t) => `The golden ring detonates on impact — a ${[70, 85, 105][t]}px blast deals 60% damage.`,
+    id: "nez_explode", god: "nezha", name: "Universe Ring",
+    desc: (t) => `The golden bracelet detonates on impact — a ${[70, 85, 105][t]}px blast deals 60% damage.`,
     apply: (s, t) => { s.explode = [70, 85, 105][t]; },
   },
-
-  // ================= 雷公 LEI GONG · thunder =================
+  // ------- LEI GONG · thunder -------
   {
-    id: "lei_dmg", god: "leigong", name: "天雷真诀", en: "Heavenly Thunder Mantra",
-    desc: (t) => `Thunder rides your shots for ${["+35%", "+55%", "+85%"][t]} damage.`,
+    id: "lei_dmg", god: "leigong", name: "Heaven's Wrath",
+    desc: (t) => `Each strike carries thunder — ${["+35%", "+55%", "+85%"][t]} damage.`,
     apply: (s, t) => { s.dmg *= [1.35, 1.55, 1.85][t]; },
   },
   {
-    id: "lei_rate", god: "leigong", name: "雷鼓连击", en: "Thunder Drumbeat",
-    desc: (t) => `The Duke beats his drum — attack ${["+22%", "+38%", "+60%"][t]} faster.`,
+    id: "lei_rate", god: "leigong", name: "Thunder Drum Barrage",
+    desc: (t) => `The drum rolls without end — attack ${["+22%", "+38%", "+60%"][t]} faster.`,
     apply: (s, t) => { s.rate *= [1.22, 1.38, 1.6][t]; },
   },
   {
-    id: "lei_chain", god: "leigong", name: "连环闪电", en: "Chain Lightning",
-    desc: (t) => `Bolts arc to ${["1", "2", "3"][t]} additional ${["target", "targets", "targets"]}.`,
+    id: "lei_rico", god: "leigong", name: "Chain Lightning",
+    desc: (t) => `Strikes arc to ${["1", "2", "3"][t]} additional ${["target", "targets", "targets"]}.`,
     apply: (s, t) => { s.ricochet = [1, 2, 3][t]; },
   },
   {
-    id: "lei_five", god: "leigong", name: "五雷轰顶", en: "Five Thunderbolts",
-    desc: (t) => `Struck foes burst in heavenly fire — a ${[80, 95, 115][t]}px blast deals 60% damage.`,
-    apply: (s, t) => { s.explode = Math.max(s.explode, [80, 95, 115][t]); },
+    id: "lei_clap", god: "leigong", name: "Five Thunders Smite",
+    desc: (t) => `Every impact cracks the sky — a ${[75, 95, 120][t]}px thunderclap deals 60% damage.`,
+    apply: (s, t) => { s.explode = [75, 95, 120][t]; },
   },
-
-  // ================= 妈祖 MAZU · tides & mercy =================
+  // ------- MAZU · the sea's mercy -------
   {
-    id: "ma_slow", god: "mazu", name: "缚潮珠", en: "Tide-Binding Pearl",
-    desc: (t) => `Sea-foam binds struck foes, slowing them ${["30%", "42%", "55%"][t]} for 1.4s.`,
+    id: "maz_slow", god: "mazu", name: "Tide-Binding Pearl",
+    desc: (t) => `Hits drench foes in the tide, slowing them ${["30%", "42%", "55%"][t]} for 1.4s.`,
     apply: (s, t) => { s.slowOnHit = [0.3, 0.42, 0.55][t]; s.slowDur = 1.4; },
   },
   {
-    id: "ma_dash", god: "mazu", name: "风平浪静", en: "Calm Seas, Still Winds",
-    desc: (t) => (t === 2 ? "Dash recharges 40% faster and grants +1 dash charge." : `Dash recharges ${["20%", "30%"][t]} faster.`),
+    id: "maz_dash", god: "mazu", name: "Calm Seas",
+    desc: (t) => (t === 2 ? "Your dash returns 40% sooner and grants +1 dash charge." : `Your dash returns ${["20%", "30%"][t]} sooner.`),
     apply: (s, t) => { s.dashCd *= [0.8, 0.7, 0.6][t]; if (t === 2) s.dashMax += 1; },
   },
   {
-    id: "ma_hp", god: "mazu", name: "慈航普渡", en: "Merciful Crossing",
-    desc: (t) => `The Empress shelters you: +${[24, 36, 50][t]} Max HP, and mend that much flesh now.`,
-    apply: (s, t) => { s.maxHp += [24, 36, 50][t]; },
-  },
-  {
-    id: "ma_pearl", god: "mazu", name: "破浪珠光", en: "Wave-Piercing Light",
-    desc: (t) => `The pearl's glare drives shots 20% faster, through ${["+1 enemy", "+1 enemy", "+2 enemies"][t]}.`,
-    apply: (s, t) => { s.projSpd *= 1.2; s.pierce += [1, 1, 2][t]; },
-  },
-
-  // ================= 后羿 HOU YI · the sun-shots =================
-  {
-    id: "hou_crit", god: "houyi", name: "射日神准", en: "Sun-Shot Aim",
-    desc: (t) => `Every arrow remembers the nine suns: +${["12%", "18%", "28%"][t]} critical chance (×2 damage).`,
-    apply: (s, t) => { s.crit += [0.12, 0.18, 0.28][t]; },
-  },
-  {
-    id: "hou_pierce", god: "houyi", name: "贯日神箭", en: "Arrow Through the Sun",
-    desc: (t) => `White-hot arrows pierce ${["+1 enemy", "+2 enemies", "+2 enemies"][t]} clean through.`,
-    apply: (s, t) => { s.pierce += [1, 2, 2][t]; },
-  },
-  {
-    id: "hou_rate", god: "houyi", name: "神速开弓", en: "The Swift Draw",
-    desc: (t) => `Draw like the archer-saint: attack ${["+18%", "+30%", "+45%"][t]} faster.`,
-    apply: (s, t) => { s.rate *= [1.18, 1.3, 1.45][t]; },
-  },
-  {
-    id: "hou_ember", god: "houyi", name: "九日余烬", en: "Embers of Nine Suns",
-    desc: (t) => `Smoldering sun-stuff in your quiver: ${["+25%", "+40%", "+60%"][t]} damage.`,
-    apply: (s, t) => { s.dmg *= [1.25, 1.4, 1.6][t]; },
-  },
-
-  // ================= 阎罗 YAN LUO · the underworld =================
-  {
-    id: "yan_nova", god: "yanluo", name: "生死簿", en: "Book of Life and Death",
-    desc: (t) => `Killing a foe strikes it from the register — its soul bursts for ${[14, 22, 34][t]} damage.`,
-    apply: (s, t) => { s.nova = 100; s.novaDmg = [14, 22, 34][t]; },
-  },
-  {
-    id: "yan_steal", god: "yanluo", name: "勾魂索", en: "Soul-Hooking Chain",
-    desc: (t) => `Your chain drags life from the wounded — heal for ${["7%", "12%", "18%"][t]} of damage dealt.`,
-    apply: (s, t) => { s.lifesteal = [0.07, 0.12, 0.18][t]; },
-  },
-  {
-    id: "yan_bleed", god: "yanluo", name: "鬼卒噬魂", en: "Imps Gnaw the Soul",
-    desc: (t) => `Hungry imps latch onto your hits — ${[5, 8, 13][t]} bleed damage per second for 2s.`,
-    apply: (s, t) => { s.bleedDps = [5, 8, 13][t]; },
-  },
-  {
-    id: "yan_low", god: "yanluo", name: "阴阳逆转", en: "Yin-Yang Reversal",
-    desc: (t) => `At death's door the register flips — below 40% HP, deal ${["+35%", "+60%", "+100%"][t]} damage.`,
-    apply: (s, t) => { s.lowHpMult = [1.35, 1.6, 2.0][t]; },
-  },
-
-  // ================= 女娲 NÜWA · creation =================
-  {
-    id: "nu_stones", god: "nuwa", name: "五彩补天", en: "Five-Colored Stones",
-    desc: (t) => `Sky-mending stones shore up your flesh: +${[28, 42, 60][t]} Max HP, and mend that much now.`,
+    id: "maz_hp", god: "mazu", name: "Merciful Voyage",
+    desc: (t) => `The lantern of the sea — +${[28, 42, 60][t]} Max HP, mended at once.`,
     apply: (s, t) => { s.maxHp += [28, 42, 60][t]; },
   },
   {
-    id: "nu_grace", god: "nuwa", name: "造化之恩", en: "Grace of Creation",
-    desc: (t) => `The mother's breath knits wounds as you fight — heal for ${["6%", "10%", "15%"][t]} of damage dealt.`,
-    apply: (s, t) => { s.lifesteal = Math.max(s.lifesteal, [0.06, 0.1, 0.15][t]); },
+    id: "maz_spd", god: "mazu", name: "Wave-Piercing Gleam",
+    desc: (t) => `Strikes cut like a keel — ${["+18%", "+30%", "+45%"][t]} speed, and pierce ${["+1 foe", "+1 foe", "+2 foes"][t]}.`,
+    apply: (s, t) => { s.projSpd *= [1.18, 1.3, 1.45][t]; s.pierce += [1, 1, 2][t]; },
+  },
+  // ------- HOU YI · the archer -------
+  {
+    id: "hou_crit", god: "houyi", name: "Sun-Piercing Aim",
+    desc: (t) => `An archer's patience — ${["+12%", "+18%", "+28%"][t]} critical chance, crits glow gold.`,
+    apply: (s, t) => { s.crit += [0.12, 0.18, 0.28][t]; },
   },
   {
-    id: "nu_clay", god: "nuwa", name: "泥人护身", en: "Clay Guardians",
-    desc: (t) => (t === 2 ? "Clay soldiers whirl with you — dash 35% faster and gain +1 charge." : `Clay soldiers whirl with you — dash recharges ${["15%", "25%"][t]} faster.`),
-    apply: (s, t) => { s.dashCd *= [0.85, 0.75, 0.65][t]; if (t === 2) s.dashMax += 1; },
+    id: "hou_pierce", god: "houyi", name: "Sun-Slaying Arrow",
+    desc: (t) => `The arrows that felled nine suns — pierce ${["+1 foe", "+2 foes", "+3 foes"][t]}, ${["+25%", "+40%", "+60%"][t]} damage.`,
+    apply: (s, t) => { s.pierce += [1, 2, 3][t]; s.dmg *= [1.25, 1.4, 1.6][t]; },
   },
   {
-    id: "nu_might", god: "nuwa", name: "补天神力", en: "Sky-Mending Might",
-    desc: (t) => `The weight of the mended sky behind every shot: ${["+20%", "+32%", "+50%"][t]} damage.`,
-    apply: (s, t) => { s.dmg *= [1.2, 1.32, 1.5][t]; },
+    id: "hou_rate", god: "houyi", name: "Divine Draw",
+    desc: (t) => `The string sings — ${["+12%", "+18%", "+26%"][t]} attack speed, ${["+6%", "+10%", "+15%"][t]} speed.`,
+    apply: (s, t) => { s.rate *= [1.12, 1.18, 1.26][t]; s.projSpd *= [1.06, 1.1, 1.15][t]; },
+  },
+  {
+    id: "hou_dmg", god: "houyi", name: "Embers of Nine Suns",
+    desc: (t) => `Strikes burn with falling suns — ${["+30%", "+50%", "+80%"][t]} damage.`,
+    apply: (s, t) => { s.dmg *= [1.3, 1.5, 1.8][t]; },
+  },
+  // ------- YAN LUO · the underworld -------
+  {
+    id: "yan_nova", god: "yanluo", name: "Book of Life and Death",
+    desc: (t) => `Their names are struck from the ledger — kills burst for ${[14, 22, 34][t]} damage and chill the nearby dead.`,
+    apply: (s, t) => { s.nova = 100; s.novaDmg = [14, 22, 34][t]; },
+  },
+  {
+    id: "yan_steal", god: "yanluo", name: "Soul-Hook Chain",
+    desc: (t) => `The chain reaps — heal ${["7%", "12%", "18%"][t]} of the damage you deal.`,
+    apply: (s, t) => { s.lifesteal = [0.07, 0.12, 0.18][t]; },
+  },
+  {
+    id: "yan_bleed", god: "yanluo", name: "Hungry Ghost Soldiers",
+    desc: (t) => `Ghost soldiers gnaw at open wounds — ${[5, 8, 13][t]} bleed damage per second for 2s.`,
+    apply: (s, t) => { s.bleedDps = [5, 8, 13][t]; },
+  },
+  {
+    id: "yan_low", god: "yanluo", name: "Yin-Yang Inversion",
+    desc: (t) => `At death's door, yin becomes yang — below 40% HP deal ${["+35%", "+60%", "+100%"][t]} damage.`,
+    apply: (s, t) => { s.lowHpMult = [1.35, 1.6, 2.0][t]; },
+  },
+  // ------- NÜWA · creation -------
+  {
+    id: "nu_hp", god: "nuwa", name: "Five-Colored Sky-Mend",
+    desc: (t) => `Patched from five-colored stones — +${[32, 48, 70][t]} Max HP, and mend half that flesh now.`,
+    apply: (s, t) => { s.maxHp += [32, 48, 70][t]; },
+  },
+  {
+    id: "nu_grace", god: "nuwa", name: "Grace of Creation",
+    desc: (t) => `The mother mends what war unmade — ${["6%", "10%", "16%"][t]} of damage dealt returns as health.`,
+    apply: (s, t) => { s.lifesteal = [0.06, 0.1, 0.16][t]; },
+  },
+  {
+    id: "nu_dash", god: "nuwa", name: "Clay Guardians",
+    desc: (t) => (t === 2 ? "Clay soldiers fight beside you — dash returns 30% sooner, +1 dash charge." : `Clay soldiers fight beside you — dash returns ${["18%", "26%"][t]} sooner.`),
+    apply: (s, t) => { s.dashCd *= [0.82, 0.74, 0.7][t]; if (t === 2) s.dashMax += 1; },
+  },
+  {
+    id: "nu_dmg", god: "nuwa", name: "Sky-Mending Might",
+    desc: (t) => `The strength that held up the heavens — ${["+28%", "+45%", "+70%"][t]} damage.`,
+    apply: (s, t) => { s.dmg *= [1.28, 1.45, 1.7][t]; },
   },
 ];
 
@@ -237,12 +229,9 @@ export interface BoonChoice {
   id: string;
   god: GodId;
   godName: string;
-  godCn: string;
-  godHanzi: string;
   godTitle: string;
   color: string;
   name: string;
-  en: string;
   desc: string;
   tier: number;
   tierName: string;
@@ -258,8 +247,7 @@ export function rollChoices(ownedIds: string[]): BoonChoice[] {
   const pool = BOONS.filter((b) => !ownedIds.includes(b.id));
   if (pool.length === 0) return [];
   const picked: BoonDef[] = [];
-  // three different gods per offering, shuffled for variety
-  const gods: GodId[] = (Object.keys(GODS) as GodId[]).sort(() => Math.random() - 0.5);
+  const gods: GodId[] = (["nezha", "leigong", "mazu", "houyi", "yanluo", "nuwa"] as GodId[]).sort(() => Math.random() - 0.5);
   let gi = 0;
   let guard = 0;
   while (picked.length < 3 && pool.length > 0 && guard++ < 60) {
@@ -280,12 +268,9 @@ export function rollChoices(ownedIds: string[]): BoonChoice[] {
       id: def.id,
       god: def.god,
       godName: g.name,
-      godCn: g.cn,
-      godHanzi: g.hanzi,
       godTitle: g.title,
       color: g.color,
       name: def.name,
-      en: def.en,
       desc: def.desc(tier),
       tier,
       tierName: TIER_NAMES[tier],

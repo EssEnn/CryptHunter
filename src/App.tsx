@@ -29,16 +29,17 @@ function saveMeta(m: MetaSave) {
 interface UpgradeDef {
   id: string;
   name: string;
+  cn: string;
   desc: string;
   base: number;
   max: number;
 }
 const UPGRADES: UpgradeDef[] = [
-  { id: "vitality", name: "Vitality", desc: "+12 Max HP per rank", base: 50, max: 5 },
-  { id: "power", name: "Ferocity", desc: "+8% damage per rank", base: 50, max: 5 },
-  { id: "agility", name: "Swiftness", desc: "-10% dash cooldown per rank", base: 60, max: 5 },
-  { id: "alchemy", name: "Alchemy", desc: "+1 starting potion at rank 1 & 3", base: 80, max: 3 },
-  { id: "fortune", name: "Fortune", desc: "+12% souls found per rank", base: 60, max: 5 },
+  { id: "vitality", name: "Vitality", cn: "体魄", desc: "+12 Max HP per rank", base: 50, max: 5 },
+  { id: "power", name: "Ferocity", cn: "勇猛", desc: "+8% damage per rank", base: 50, max: 5 },
+  { id: "agility", name: "Swiftness", cn: "身法", desc: "-10% dash cooldown per rank", base: 60, max: 5 },
+  { id: "alchemy", name: "Alchemy", cn: "丹药", desc: "+1 starting potion at rank 1 & 3", base: 80, max: 3 },
+  { id: "fortune", name: "Fortune", cn: "财运", desc: "+12% souls found per rank", base: 60, max: 5 },
 ];
 const COST_MULT = [1, 2, 4, 7, 11];
 const upCost = (u: UpgradeDef, lvl: number) => u.base * COST_MULT[Math.min(lvl, COST_MULT.length - 1)];
@@ -56,32 +57,72 @@ function metaInput(m: MetaSave): MetaInput {
 }
 
 /* ================= icons ================= */
-function FlameSigil({ size = 28, color = "#ff7a2f" }: { size?: number; color?: string }) {
+/* 哪吒 · Wind Fire Wheel */
+function NezhaSigil({ size = 28, color = "#ff7a2f" }: { size?: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M12 2c1.2 4.4-3.6 6.2-3.6 10.6a3.9 3.9 0 0 0 7.8 0c0-1.9-.9-3.2-.9-4.9 2.6 1.6 4.2 4.2 4.2 6.8A7.5 7.5 0 1 1 4.5 14C4.5 8.2 10.6 6.4 12 2Z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="4.6" />
+      <circle cx="12" cy="12" r="1.4" fill={color} stroke="none" />
+      <path d="M12 2.2v2.6M12 19.2v2.6M2.2 12h2.6M19.2 12h2.6M5.1 5.1l1.9 1.9M17 17l1.9 1.9M18.9 5.1 17 7M7 17l-1.9 1.9" />
     </svg>
   );
 }
-function FrostSigil({ size = 28, color = "#43d6ff" }: { size?: number; color?: string }) {
+/* 雷公 · thunderbolt */
+function LeiGongSigil({ size = 28, color = "#ffe14d" }: { size?: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none">
-      <path d="M12 2v20M3.3 7l17.4 10M20.7 7L3.3 17" />
-      <path d="M12 5.5 9.5 3.8M12 5.5l2.5-1.7M12 18.5l-2.5 1.7M12 18.5l2.5 1.7" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M13.6 2 4.8 13.4h5.4L9 22l10.2-12.6h-5.6L15.4 2h-1.8Z" />
     </svg>
   );
 }
-function BloodSigil({ size = 28, color = "#ff3b57" }: { size?: number; color?: string }) {
+/* 媽祖 · tide lines */
+function MazuSigil({ size = 28, color = "#43d6ff" }: { size?: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M12 2S5 10.2 5 15a7 7 0 0 0 14 0C19 10.2 12 2 12 2Zm0 17.5a4.5 4.5 0 0 1-4.5-4.5c0-.5.4-.9.9-.9s.9.4.9.9a2.7 2.7 0 0 0 2.7 2.7c.5 0 .9.4.9.9s-.4.9-.9.9Z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.1" strokeLinecap="round">
+      <path d="M2.5 9c2.4 0 2.4-2.6 4.75-2.6S9.6 9 12 9s2.35-2.6 4.75-2.6S19.1 9 21.5 9" />
+      <path d="M2.5 15.4c2.4 0 2.4-2.6 4.75-2.6s2.35 2.6 4.75 2.6 2.35-2.6 4.75-2.6 2.35 2.6 4.75 2.6" />
+      <path d="M6 20.6c2 0 2-2.2 4-2.2s2 2.2 4 2.2 2-2.2 4-2.2" opacity="0.55" />
+    </svg>
+  );
+}
+/* 后羿 · arrow through the sun */
+function HouYiSigil({ size = 28, color = "#ffb830" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.9" strokeLinecap="round">
+      <circle cx="12" cy="12" r="4.4" fill={color} stroke="none" opacity="0.9" />
+      <path d="M12 2.4v2.4M12 19.2v2.4M2.4 12h2.4M19.2 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7" opacity="0.7" />
+      <path d="M2.5 21.5 21.5 2.5" strokeWidth="2.2" />
+      <path d="M21.5 2.5h-5.2M21.5 2.5v5.2" strokeWidth="2.2" />
+    </svg>
+  );
+}
+/* 閻羅 · soul-hooking scythe */
+function YanLuoSigil({ size = 28, color = "#a0ff5e" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.1" strokeLinecap="round">
+      <path d="M6 21.5 16.5 11" />
+      <path d="M13.2 7.2c4.6-1.4 8 1.8 8.3 6.3-2.3-2.4-4.6-3-8-2.2" fill={color} stroke="none" />
+      <circle cx="5" cy="21" r="1.6" fill={color} stroke="none" />
+    </svg>
+  );
+}
+/* 女媧 · five-colored stone */
+function NuwaSigil({ size = 28, color = "#ff6d8a" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <path d="M12 2.2 21.3 9.4 17.7 21H6.3L2.7 9.4 12 2.2Z" fill={color} />
+      <path d="M12 2.2v18.8M2.7 9.4h18.6M12 9.4l5.7 11.6M12 9.4 6.3 21" stroke="rgba(30,5,14,0.45)" strokeWidth="1.3" fill="none" />
     </svg>
   );
 }
 function Sigil({ god, size }: { god: string; size?: number }) {
-  if (god === "ashka") return <FlameSigil size={size} />;
-  if (god === "vessa") return <FrostSigil size={size} />;
-  return <BloodSigil size={size} />;
+  if (god === "nezha") return <NezhaSigil size={size} />;
+  if (god === "leigong") return <LeiGongSigil size={size} />;
+  if (god === "mazu") return <MazuSigil size={size} />;
+  if (god === "houyi") return <HouYiSigil size={size} />;
+  if (god === "yanluo") return <YanLuoSigil size={size} />;
+  if (god === "nuwa") return <NuwaSigil size={size} />;
+  return <NezhaSigil size={size} />;
 }
 function CoinIcon({ size = 16 }: { size?: number }) {
   return (
@@ -125,7 +166,7 @@ function Hud({ hud }: { hud: HudData }) {
       <div className="absolute left-4 top-4 w-[300px]">
         <div className="plate plate-rivets px-4 py-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-[13px] font-semibold tracking-[0.25em] text-[#c9b8a0]">FLESH</span>
+            <span className="text-[13px] font-semibold tracking-[0.25em] text-[#c9b8a0]"><span className="font-hanzi">血肉</span> FLESH</span>
             <span className={`font-display text-lg font-bold leading-none ${low ? "text-[#ff3b57]" : "text-[#e8ddcf]"}`}>
               {hud.hp}<span className="text-[#8a7a64] text-sm"> / {hud.maxHp}</span>
             </span>
@@ -134,7 +175,7 @@ function Hud({ hud }: { hud: HudData }) {
             <div className="hp-fill h-full transition-[width] duration-150" style={{ width: `${hpFrac * 100}%` }} />
           </div>
           <div className="mt-1 flex items-center justify-between text-[12px] tracking-wider text-[#8a7a64]">
-            <span className="text-[#c25050]">◈ THE HUNGER −{hud.drain.toFixed(1)}/s</span>
+            <span className="text-[#c25050]">◈ 饥饿 HUNGER −{hud.drain.toFixed(1)}/s</span>
             <span className="flex items-center gap-1"><KeyIcon size={13} dim={hud.keys === 0} />×{hud.keys}</span>
           </div>
           <div className="mt-2 flex items-center gap-3">
@@ -151,7 +192,7 @@ function Hud({ hud }: { hud: HudData }) {
                   </div>
                 );
               })}
-              <span className="ml-1 text-[13px] font-semibold tracking-widest text-[#c9b8a0]">DASH</span>
+              <span className="ml-1 text-[13px] font-semibold tracking-widest text-[#c9b8a0]"><span className="font-hanzi">遁</span> DASH</span>
             </div>
           </div>
         </div>
@@ -160,7 +201,7 @@ function Hud({ hud }: { hud: HudData }) {
       {/* top-right: depth & souls */}
       <div className="absolute right-4 top-4 w-[240px]">
         <div className="plate plate-rivets px-4 py-3 text-right">
-          <div className="text-[12px] tracking-[0.3em] text-[#8a7a64]">DEPTH</div>
+          <div className="text-[12px] tracking-[0.3em] text-[#8a7a64]"><span className="font-hanzi">层</span> DEPTH</div>
           <div className="font-display text-3xl font-black leading-none text-[#ffc23d]" style={{ textShadow: "0 0 16px rgba(255,194,61,0.4)" }}>
             {hud.depth}<span className="text-base text-[#8a6a24]"> / ∞</span>
           </div>
@@ -169,7 +210,7 @@ function Hud({ hud }: { hud: HudData }) {
             <span className="flex items-center gap-1.5 text-[#ff9a8a]"><SkullIcon /> {hud.foes + hud.gens}</span>
           </div>
           {hud.gens > 0 && (
-            <div className="mt-1 text-[12px] tracking-[0.2em] text-[#c26bff]">SPAWNFONTS ×{hud.gens} — DESTROY THEM</div>
+            <div className="mt-1 text-[12px] tracking-[0.2em] text-[#c26bff]"><span className="font-hanzi">妖泉</span> ×{hud.gens} — DESTROY THEM</div>
           )}
         </div>
       </div>
@@ -215,9 +256,10 @@ function Hud({ hud }: { hud: HudData }) {
 function BoonDraft({ choices, onPick }: { choices: BoonChoice[]; onPick: (i: number) => void }) {
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[rgba(4,2,8,0.82)] backdrop-blur-[2px]">
-      <div className="anim-fade mb-2 text-[15px] font-semibold tracking-[0.5em] text-[#8a7a64]">A GOD EXTENDS ITS FAVOR</div>
-      <h2 className="anim-fade font-display text-4xl font-black tracking-wide text-[#ffc23d]" style={{ textShadow: "0 0 24px rgba(255,194,61,0.45)" }}>
-        CHOOSE YOUR BOON
+      <div className="anim-fade mb-1 text-[15px] font-semibold tracking-[0.5em] text-[#8a7a64]">众神注视 · A GOD EXTENDS ITS FAVOR</div>
+      <h2 className="anim-fade flex items-baseline gap-4">
+        <span className="font-brush text-[54px] leading-none text-[#ffc23d]" style={{ textShadow: "0 0 26px rgba(255,194,61,0.5)" }}>择神恩</span>
+        <span className="font-display text-2xl font-black tracking-[0.2em] text-[#c9b8a0]">CHOOSE YOUR BOON</span>
       </h2>
       <div className="mt-10 flex items-stretch gap-6">
         {choices.map((c, i) => (
@@ -225,24 +267,29 @@ function BoonDraft({ choices, onPick }: { choices: BoonChoice[]; onPick: (i: num
             key={c.id}
             onClick={() => onPick(i)}
             onMouseEnter={() => sfx.uiMove()}
-            className={`boon-card anim-rise plate relative w-[280px] border-2 px-6 pb-6 pt-7 text-left rarity-${c.tier}`}
+            className={`boon-card anim-rise plate relative w-[280px] overflow-hidden border-2 px-6 pb-6 pt-7 text-left rarity-${c.tier}`}
             style={{ animationDelay: `${i * 0.09}s`, background: `linear-gradient(170deg, ${GODS[c.god].soft}, rgba(16,10,22,0.96) 55%)` }}
           >
+            <span className="hanzi-mark font-brush" style={{ color: c.color }}>{c.godHanzi}</span>
             <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center border border-[#4a3558] bg-[#120b1a] font-display text-sm font-bold text-[#c9b8a0]">
               {i + 1}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="relative flex items-center gap-3">
               <div className="flex h-[52px] w-[52px] items-center justify-center border" style={{ borderColor: c.color, background: "rgba(6,3,10,0.6)", boxShadow: `0 0 18px ${c.color}55` }}>
                 <Sigil god={c.god} size={32} />
               </div>
               <div>
-                <div className="text-[13px] font-bold tracking-[0.22em]" style={{ color: c.color }}>{c.godName}</div>
+                <div className="text-[14px] font-bold" style={{ color: c.color }}>
+                  <span className="font-hanzi tracking-[0.12em]">{c.godCn}</span>
+                  <span className="ml-1.5 text-[12px] tracking-[0.18em]">{c.godName}</span>
+                </div>
                 <div className="text-[11px] tracking-widest text-[#8a7a64]">{c.godTitle.toUpperCase()}</div>
               </div>
             </div>
-            <div className="mt-4 font-display text-[22px] font-bold leading-tight text-[#f0e6d6]">{c.name}</div>
-            <div className="mt-2 min-h-[52px] text-[16px] leading-snug text-[#c9bcae]">{c.desc}</div>
-            <div className="mt-3 inline-block border px-2 py-0.5 text-[12px] font-bold tracking-[0.25em]" style={{ color: c.tierColor, borderColor: `${c.tierColor}66` }}>
+            <div className="relative mt-4 font-hanzi text-[26px] leading-tight text-[#f0e6d6]" style={{ textShadow: `0 0 18px ${c.color}44` }}>{c.name}</div>
+            <div className="relative mt-0.5 text-[12px] font-semibold tracking-[0.24em]" style={{ color: c.color }}>{c.en.toUpperCase()}</div>
+            <div className="relative mt-2 min-h-[52px] text-[16px] leading-snug text-[#c9bcae]">{c.desc}</div>
+            <div className="relative mt-3 inline-block border px-2 py-0.5 text-[12px] font-bold tracking-[0.25em]" style={{ color: c.tierColor, borderColor: `${c.tierColor}66` }}>
               {c.tierName}
             </div>
           </button>
@@ -272,19 +319,24 @@ function TitleScreen({ meta, onBuy, onStart }: { meta: MetaSave; onBuy: (u: Upgr
         {/* left — identity */}
         <div className="anim-fade">
           <div className="mb-3 flex items-center gap-3 text-[14px] font-semibold tracking-[0.45em] text-[#c25050]">
-            <span className="h-[2px] w-10 bg-[#c25050]" /> A GAUNTLET OF EMBER &amp; BLOOD
+            <span className="h-[2px] w-10 bg-[#c25050]" /> 六神注视 · SIX GODS ARE WATCHING
           </div>
-          <h1 className="anim-title font-display text-[64px] font-black leading-[0.95] text-[#f0e6d6] md:text-[86px] lg:text-[108px]">
-            CRYPT<span className="text-[#ff7a2f]">BORN</span>
+          <h1 className="anim-title font-brush text-[92px] leading-[0.95] text-[#f0e6d6] md:text-[118px] lg:text-[140px]">
+            饿<span className="text-[#ff7a2f]">鬼</span>城
           </h1>
+          <div className="mt-2 font-display text-[15px] font-bold tracking-[0.6em] text-[#b8862a]">
+            HUNGRY GHOST CRYPT
+          </div>
           <p className="mt-4 max-w-[480px] text-[18px] leading-snug text-[#c9bcae]">
-            The Hunger Vault swallows warriors whole. Smash its spawnfonts, outlast the gnawing dark,
-            and accept the boons of three jealous gods — death is only the beginning of the bargain.
+            The crypt swallows warriors whole. Smash its demon fonts, outlast the gnawing dark, and accept
+            the boons of six folk gods — <span className="font-hanzi text-[#f0e6d6]">哪吒 · 雷公 · 媽祖 · 后羿 · 閻羅 · 女媧</span>.
+            Far below, <span className="font-hanzi text-[#ff3b57]">饕餮</span> the Devourer waits on its hunger throne.
+            Death is only the beginning of the bargain.
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-6">
             <button onClick={onStart} className="btn btn-ember px-10 py-4 text-[20px]">
-              ⚔ Enter the Vault
+              ⚔ 入城 · DESCEND
             </button>
             <div className="text-[14px] tracking-wider text-[#8a7a64]">
               or press <span className="keycap !text-[13px]">ENTER</span>
@@ -292,7 +344,7 @@ function TitleScreen({ meta, onBuy, onStart }: { meta: MetaSave; onBuy: (u: Upgr
           </div>
 
           <div className="plate mt-8 max-w-[440px] px-5 py-4">
-            <div className="mb-1 text-[13px] font-bold tracking-[0.35em] text-[#ffc23d]">RITES OF CONTROL</div>
+            <div className="mb-1 text-[13px] font-bold tracking-[0.35em] text-[#ffc23d]">降魔仪轨 · RITES OF CONTROL</div>
             <div className="grid grid-cols-2 gap-x-8">
               <div>
                 <KeyRow k="WASD" label="Move" />
@@ -311,12 +363,15 @@ function TitleScreen({ meta, onBuy, onStart }: { meta: MetaSave; onBuy: (u: Upgr
         {/* right — shrine */}
         <div className="anim-rise plate plate-rivets flex max-h-[86vh] flex-col px-6 py-5" style={{ animationDelay: "0.15s" }}>
           <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-2xl font-black tracking-wide text-[#e8ddcf]">SHRINE OF ECHOES</h2>
+            <h2 className="text-2xl font-black tracking-wide text-[#e8ddcf]">
+              <span className="font-hanzi">祖灵祠堂</span>
+              <span className="ml-2 font-display text-[15px] font-bold tracking-[0.2em] text-[#8a7a64]">SHRINE OF ECHOES</span>
+            </h2>
             <div className="flex items-center gap-2 text-[19px] font-bold text-[#ffc23d]">
               <CoinIcon size={19} /> {meta.souls}
             </div>
           </div>
-          <div className="mt-1 text-[13px] tracking-[0.25em] text-[#8a7a64]">SOULS PERSIST BEYOND DEATH — SPEND THEM HERE</div>
+          <div className="mt-1 text-[13px] tracking-[0.25em] text-[#8a7a64]">香火不熄 · SOULS PERSIST BEYOND DEATH — SPEND THEM HERE</div>
 
           <div className="shrine-scroll mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
             {UPGRADES.map((u) => {
@@ -327,7 +382,10 @@ function TitleScreen({ meta, onBuy, onStart }: { meta: MetaSave; onBuy: (u: Upgr
               return (
                 <div key={u.id} className="border border-[#3a2b44] bg-[rgba(12,7,17,0.6)] px-4 py-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-display text-[17px] font-bold text-[#e8ddcf]">{u.name}</span>
+                    <span className="text-[17px] font-bold text-[#e8ddcf]">
+                      <span className="font-hanzi">{u.cn}</span>
+                      <span className="ml-1.5 font-display">{u.name}</span>
+                    </span>
                     <div className="flex gap-1">
                       {Array.from({ length: u.max }).map((_, i) => (
                         <span key={i} className="h-[9px] w-[14px] skew-x-[-14deg] border border-[#4a3558]" style={{ background: i < lvl ? "linear-gradient(180deg,#ffe2a0,#b8862a)" : "transparent", boxShadow: i < lvl ? "0 0 6px rgba(255,194,61,0.5)" : "none" }} />
@@ -340,7 +398,7 @@ function TitleScreen({ meta, onBuy, onStart }: { meta: MetaSave; onBuy: (u: Upgr
                     disabled={maxed || !afford}
                     className={`btn mt-2 w-full py-1.5 text-[14px] ${afford && !maxed ? "btn-ember" : "btn-iron"}`}
                   >
-                    {maxed ? "✦ Mastered" : `Empower — ${cost} souls`}
+                    {maxed ? "✦ 圆满 · MASTERED" : `供奉 OFFER — ${cost} SOULS`}
                   </button>
                 </div>
               );
@@ -350,7 +408,7 @@ function TitleScreen({ meta, onBuy, onStart }: { meta: MetaSave; onBuy: (u: Upgr
           <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[#3a2b44] pt-3 text-center">
             <div><div className="font-display text-xl font-bold text-[#e8ddcf]">{meta.runs}</div><div className="text-[11px] tracking-[0.25em] text-[#8a7a64]">RUNS</div></div>
             <div><div className="font-display text-xl font-bold text-[#ffc23d]">{meta.best}</div><div className="text-[11px] tracking-[0.25em] text-[#8a7a64]">BEST DEPTH</div></div>
-            <div><div className="font-display text-xl font-bold text-[#ff7a2f]">{meta.won}</div><div className="text-[11px] tracking-[0.25em] text-[#8a7a64]">TYRANTS SLAIN</div></div>
+            <div><div className="font-display text-xl font-bold text-[#ff7a2f]">{meta.won}</div><div className="text-[11px] tracking-[0.25em] text-[#8a7a64]">TAOTIE SLAIN</div></div>
           </div>
         </div>
       </div>
@@ -374,21 +432,24 @@ function EndScreen({ stats, onReturn, onContinue }: { stats: RunStats; onReturn:
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[rgba(4,2,8,0.85)]">
       <div className="anim-rise w-[460px] text-center">
-        <div className={`mb-2 text-[14px] font-semibold tracking-[0.5em] ${won ? "text-[#b8862a]" : "text-[#8a3040]"}`}>
-          {won ? "THE VAULT LIES OPEN" : "YOUR BONES JOIN THE GALLERY"}
+        <div className={`mb-2 text-[14px] font-semibold tracking-[0.4em] ${won ? "text-[#b8862a]" : "text-[#8a3040]"}`}>
+          {won ? "THE CRYPT LIES OPEN · 幽冥之门已开" : "YOUR BONES JOIN THE GALLERY · 枯骨入廊"}
         </div>
-        <h1 className={`font-display text-[64px] font-black leading-none ${won ? "anim-gold text-[#ffc23d]" : "anim-death text-[#ff3b57]"}`}>
-          {won ? "TYRANT SLAIN" : "THE VAULT FEEDS"}
+        <h1 className={`font-brush text-[88px] leading-none ${won ? "anim-gold text-[#ffc23d]" : "anim-death text-[#ff3b57]"}`}>
+          {won ? "饕餮已诛" : "饿鬼饱餐"}
         </h1>
+        <div className={`mt-1 font-display text-lg font-black tracking-[0.42em] ${won ? "text-[#c9b8a0]" : "text-[#8a5560]"}`}>
+          {won ? "TAOTIE SLAIN" : "THE CRYPT FEEDS"}
+        </div>
 
         <div className="plate plate-rivets mx-auto mt-8 px-7 py-5 text-left">
-          <StatRow label="DEPTH REACHED" value={`CHAMBER ${stats.depth}`} accent="#ffc23d" />
-          <StatRow label="SOULS SLAIN" value={String(stats.kills)} />
+          <StatRow label="DEPTH REACHED · 层数" value={`第 ${stats.depth} 层`} accent="#ffc23d" />
+          <StatRow label="FOES SLAIN · 伏魔" value={String(stats.kills)} />
           <StatRow label="DAMAGE DEALT" value={stats.dmg.toLocaleString()} />
           <StatRow label="TIME IN THE DARK" value={`${mm}:${ss}`} />
-          <StatRow label="BOONS ACCEPTED" value={String(stats.boonNames.length)} />
+          <StatRow label="BOONS ACCEPTED · 神恩" value={String(stats.boonNames.length)} />
           <div className="mt-3 flex items-center justify-between">
-            <span className="text-[15px] tracking-[0.25em] text-[#8a7a64]">SOULS BANKED</span>
+            <span className="text-[15px] tracking-[0.25em] text-[#8a7a64]">香火入账 · SOULS BANKED</span>
             <span className="flex items-center gap-2 font-display text-[30px] font-black text-[#ffc23d]" style={{ textShadow: "0 0 18px rgba(255,194,61,0.5)" }}>
               <CoinIcon size={24} /> +{stats.gold}
             </span>
@@ -399,8 +460,8 @@ function EndScreen({ stats, onReturn, onContinue }: { stats: RunStats; onReturn:
                 const def = BOONS.find((b) => b.id === id);
                 const god = def ? GODS[def.god] : null;
                 return (
-                  <span key={i} className="flex items-center gap-1.5 border border-[#3a2b44] px-2 py-0.5 text-[13px] tracking-wider text-[#c9bcae]" style={{ borderColor: god ? `${god.color}55` : undefined }}>
-                    {god && <Sigil god={god.id} size={13} />} {def?.name ?? id}
+                  <span key={i} title={def?.en} className="flex items-center gap-1.5 border border-[#3a2b44] px-2 py-0.5 text-[14px] tracking-wider text-[#c9bcae]" style={{ borderColor: god ? `${god.color}55` : undefined }}>
+                    {god && <Sigil god={god.id} size={13} />} <span className="font-hanzi">{def?.name ?? id}</span>
                   </span>
                 );
               })}
@@ -410,10 +471,10 @@ function EndScreen({ stats, onReturn, onContinue }: { stats: RunStats; onReturn:
 
         <div className="mt-7 flex items-center justify-center gap-4">
           {onContinue && (
-            <button onClick={onContinue} className="btn btn-ember px-8 py-3 text-[17px]">⚔ Delve Deeper</button>
+            <button onClick={onContinue} className="btn btn-ember px-8 py-3 text-[17px]">⚔ 再入幽冥 · DELVE DEEPER</button>
           )}
           <button onClick={onReturn} className={`btn px-8 py-3 text-[17px] ${onContinue ? "btn-iron" : "btn-ember"}`}>
-            Return to Shrine
+            回祠堂 · RETURN TO SHRINE
           </button>
         </div>
       </div>
@@ -425,8 +486,10 @@ function PauseOverlay({ onResume, onAbandon, muted, onMute }: { onResume: () => 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[rgba(4,2,8,0.78)]">
       <div className="anim-rise plate plate-rivets w-[380px] px-8 py-7 text-center">
-        <h2 className="font-display text-4xl font-black tracking-wide text-[#e8ddcf]">RESPITE</h2>
-        <div className="mt-1 text-[13px] tracking-[0.4em] text-[#8a7a64]">THE VAULT WAITS</div>
+        <h2 className="text-4xl font-black tracking-wide text-[#e8ddcf]">
+          <span className="font-hanzi">小憩</span> <span className="font-display">RESPITE</span>
+        </h2>
+        <div className="mt-1 text-[13px] tracking-[0.4em] text-[#8a7a64]">THE CRYPT WAITS · 幽冥不等人</div>
         <div className="mx-auto mt-5 max-w-[280px] text-left">
           <KeyRow k="WASD" label="Move" />
           <KeyRow k="LMB" label="Fire (hold)" />

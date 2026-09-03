@@ -360,8 +360,8 @@ export class Engine {
     this.decalCv.width = W; this.decalCv.height = H;
     this.buildObstacles();
     this.populateChamber();
-    const sub = this.bossRoom ? "SLAY THE VAULT TYRANT" : `GENERATORS: ${this.enemies.filter((e) => e.kind === "generator").length}  ·  DESTROY THEM ALL`;
-    this.setBanner(this.bossRoom ? "THE HUNGER THRONE" : `CHAMBER ${this.depth}`, sub, this.bossRoom ? "#ff3b57" : "#ffc23d");
+    const sub = this.bossRoom ? "饕餮在等你 · SLAY THE TAOTIE" : `妖泉 ×${this.enemies.filter((e) => e.kind === "generator").length} · DESTROY THE SPAWNFONTS`;
+    this.setBanner(this.bossRoom ? "饿鬼王座" : `第 ${this.depth} 层`, sub, this.bossRoom ? "#ff3b57" : "#ffc23d");
     if (this.bossRoom) sfx.bossRoar();
     this.emitHud();
   }
@@ -817,7 +817,7 @@ export class Engine {
       this.flash = 0.7;
       this.shake = 22;
       if (this.depth === 10) {
-        this.setBanner("THE TYRANT FALLS", "THE VAULT LIES OPEN", "#ffc23d");
+        this.setBanner("饕餮已诛", "TAOTIE SLAIN · THE CRYPT LIES OPEN", "#ffc23d");
         this.state = "victory";
         this.victoryT = 1.5;
         sfx.victory();
@@ -827,7 +827,7 @@ export class Engine {
         this.clearT = 1.1;
         const gained = Math.round((40 + this.depth * 3) * this.meta.goldMult);
         this.runGold += gained;
-        this.setBanner("TYRANT SLAIN", `+${gained} SOULS`, "#ffc23d");
+        this.setBanner("饕餮再诛", `+${gained} SOULS · 它还会回来`, "#ffc23d");
         sfx.clear();
       }
     }
@@ -1219,7 +1219,7 @@ export class Engine {
       const gained = Math.round(bonus * this.meta.goldMult);
       this.runGold += gained;
       this.hp = clamp(this.hp + 8, 0, this.stats.maxHp);
-      this.setBanner("CHAMBER CLEARED", `+${gained} SOULS  ·  THE GODS ARE WATCHING`, "#ffc23d");
+      this.setBanner("此层已清", `+${gained} SOULS · 众神在注视`, "#ffc23d");
       sfx.clear();
       this.emitHud();
     }
@@ -1315,7 +1315,7 @@ export class Engine {
       foes: this.enemies.filter((e) => e.kind !== "generator").length,
       gens: this.enemies.filter((e) => e.kind === "generator").length,
       drain: 1.1 + (this.depth - 1) * 0.07,
-      boss: boss ? { hp: Math.max(0, Math.round(boss.hp)), max: Math.round(boss.maxHp), name: "VAULT TYRANT" } : null,
+      boss: boss ? { hp: Math.max(0, Math.round(boss.hp)), max: Math.round(boss.maxHp), name: "饕餮 · TAOTIE" } : null,
       boons: this.owned.map((o) => {
         const g = Object.values(GODS).find((gg) => BOON_GOD[o.id] === gg.id);
         return { god: BOON_GOD[o.id] ?? "", color: g?.color ?? "#fff", tier: o.tier, name: o.id };
@@ -1940,13 +1940,13 @@ export class Engine {
       ctx.scale(scaleIn, scaleIn);
       ctx.globalAlpha = a;
       ctx.textAlign = "center";
-      ctx.font = '800 58px "Cinzel", serif';
+      ctx.font = '800 58px "Cinzel", "ZCOOL XiaoWei", serif';
       ctx.strokeStyle = "rgba(0,0,0,0.8)";
       ctx.lineWidth = 8;
       ctx.strokeText(b.text, 0, 0);
       ctx.fillStyle = b.color;
       ctx.fillText(b.text, 0, 0);
-      ctx.font = '600 21px "Barlow Condensed", sans-serif';
+      ctx.font = '600 22px "Barlow Condensed", "Noto Sans SC", sans-serif';
       ctx.strokeStyle = "rgba(0,0,0,0.8)";
       ctx.lineWidth = 5;
       ctx.strokeText(b.sub, 0, 34);

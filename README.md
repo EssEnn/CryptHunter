@@ -1,5 +1,5 @@
 # CryptHunter
-game made using qwen 3.8 max
+game made using qwen studio
 
 2 prompts
 
